@@ -12,3 +12,5 @@ chromadb
 langgraph
 alembic
 python-multipart
+python-jose[cryptography]
+passlib[bcrypt]
