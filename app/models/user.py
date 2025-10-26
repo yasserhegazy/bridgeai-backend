@@ -7,7 +7,6 @@ import enum
 class UserRole(enum.Enum):
     client = "client"
     ba = "ba"
-    admin = "admin"
 
 
 class User(Base):
