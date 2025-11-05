@@ -8,6 +8,7 @@ __pycache__/
 # Virtual environment
 venv/
 .env
+.venv
 
 # Alembic migration cache
 alembic/versions/__pycache__/
