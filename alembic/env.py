@@ -11,9 +11,13 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
 # Import your Base and models
 from app.db.session import Base  # ✅ Correct path to Base
 from app import models            # ✅ Make sure all models are imported so Alembic can see them
+from app.core.config import settings  # Import settings to get DATABASE_URL
 
 # Alembic Config object
 config = context.config
+
+# Override the sqlalchemy.url with the one from .env
+config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
 
 # Set up Python logging
 if config.config_file_name is not None:
