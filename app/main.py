@@ -4,8 +4,12 @@ from app.core.config import settings
 from app.db.session import engine, Base
 from app.api import router as api_router
 from app.api import auth
+from app import __version__
 
-app = FastAPI(title="BridgeAI Backend")
+app = FastAPI(
+    title="BridgeAI Backend",
+    version=__version__
+)
 
 # ✅ Define allowed frontend origins
 origins = [
@@ -30,4 +34,7 @@ app.include_router(auth.router)  # make sure this defines /auth/token
 
 @app.get("/")
 def root():
-    return {"message": "BridgeAI backend running"}
+    return {
+        "message": "BridgeAI backend running",
+        "version": __version__
+    }
