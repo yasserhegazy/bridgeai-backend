@@ -4,7 +4,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 from app.db.session import get_db
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.core.config import settings
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
@@ -13,6 +13,9 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     to_encode = data.copy()
     expire = datetime.utcnow() + (expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES))
     to_encode.update({"exp": expire})
+    # Include role in token payload if provided
+    if "role" in data and isinstance(data["role"], UserRole):
+        to_encode["role"] = data["role"].value
     encoded_jwt = jwt.encode(to_encode, settings.SECRET_KEY, algorithm=settings.ALGORITHM)
     return encoded_jwt
 
@@ -32,3 +35,30 @@ def verify_token(token: str, db: Session):
 
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     return verify_token(token, db)
+
+
+def require_role(allowed_roles: list[UserRole]):
+    """
+    Factory function to create a dependency that checks if the current user has one of the allowed roles.
+    
+    Usage:
+        require_ba = require_role([UserRole.ba])
+        
+        @router.get("/admin")
+        def admin_endpoint(current_user: User = Depends(require_ba)):
+            ...
+    """
+    def role_checker(current_user: User = Depends(get_current_user)):
+        if current_user.role not in allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Access denied. Required role(s): {[role.value for role in allowed_roles]}"
+            )
+        return current_user
+    return role_checker
+
+
+# Convenience dependencies for specific roles
+require_ba = require_role([UserRole.ba])
+require_client = require_role([UserRole.client])
+require_any_authenticated = get_current_user  # Alias for clarity
