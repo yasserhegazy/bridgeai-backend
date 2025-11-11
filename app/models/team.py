@@ -32,6 +32,7 @@ class Team(Base):
     # Relationships
     creator = relationship("User", foreign_keys=[created_by])
     members = relationship("TeamMember", back_populates="team", cascade="all, delete-orphan")
+    projects = relationship("Project", back_populates="team")
 
 
 class TeamMember(Base):

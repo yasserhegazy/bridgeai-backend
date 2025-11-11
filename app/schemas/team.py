@@ -47,6 +47,18 @@ class TeamUpdate(BaseModel):
         return values
 
 
+# Simple project schema to avoid circular imports
+class ProjectSimpleOut(BaseModel):
+    id: int
+    name: str
+    description: Optional[str]
+    status: str
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
+
+
 class TeamMemberOut(BaseModel):
     id: int
     user_id: int
@@ -67,6 +79,7 @@ class TeamOut(BaseModel):
     created_at: datetime
     updated_at: datetime
     members: Optional[List[TeamMemberOut]] = []
+    projects: Optional[List[ProjectSimpleOut]] = []
     
     class Config:
         from_attributes = True

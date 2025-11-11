@@ -9,6 +9,7 @@ from app.schemas.team import (
 )
 from app.models.team import Team, TeamMember, TeamRole, TeamStatus
 from app.models.user import User
+from app.models.project import Project
 from app.core.security import get_current_user
 
 
@@ -413,3 +414,40 @@ def remove_team_member(
     db.commit()
     
     return {"message": "Team member removed successfully"}
+
+
+@router.get("/{team_id}/projects")
+def list_team_projects(
+    team_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """List projects belonging to a team. Only team members can view projects."""
+    # Check if user is a member of the team
+    team_member = db.query(TeamMember).filter(
+        TeamMember.team_id == team_id,
+        TeamMember.user_id == current_user.id,
+        TeamMember.is_active == True
+    ).first()
+    
+    if not team_member:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied. You are not a member of this team."
+        )
+    
+    # Get all projects for this team
+    projects = db.query(Project).filter(Project.team_id == team_id).all()
+    
+    return [
+        {
+            "id": project.id,
+            "name": project.name,
+            "description": project.description,
+            "status": project.status.value,
+            "created_by": project.created_by,
+            "created_at": project.created_at,
+            "updated_at": project.updated_at
+        }
+        for project in projects
+    ]

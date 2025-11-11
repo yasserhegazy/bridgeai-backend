@@ -37,7 +37,7 @@ def upgrade() -> None:
     crs_status.create(bind, checkfirst=True)
     source_type.create(bind, checkfirst=True)
 
-    Create tables
+    # Create tables
     op.create_table(
         'users',
         sa.Column('id', sa.Integer(), primary_key=True),
