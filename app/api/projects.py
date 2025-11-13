@@ -19,7 +19,7 @@ def create_project(
 ):
     """Create a new project. User must be a member of the specified team."""
     # Check if team exists
-    team = db.query(Team).filter(Team.id == payload.team_id).first()
+    team = db.query(Team).filter(Team.id ==uvipayload.team_id).first()
     if not team:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
