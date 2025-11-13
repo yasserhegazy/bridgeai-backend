@@ -444,7 +444,7 @@ def list_team_projects(
             "id": project.id,
             "name": project.name,
             "description": project.description,
-            "status": project.status.value,
+            "status": project.status,  # Already a string, no need for .value
             "created_by": project.created_by,
             "created_at": project.created_at,
             "updated_at": project.updated_at
