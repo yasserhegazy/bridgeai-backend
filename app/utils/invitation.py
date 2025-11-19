@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from sqlalchemy.orm import Session
 from app.models.invitation import Invitation
 from app.core.config import settings
+from app.utils.email import send_invitation_email
 
 
 def generate_invitation_token() -> str:
@@ -52,32 +53,40 @@ def create_invitation(
     return invitation
 
 
-def send_invitation_email_to_console(email: str, invite_link: str, team_name: str = None):
+def send_invitation_email_to_console(email: str, invite_link: str, team_name: str = None, inviter_name: str = None):
     """
-    Send invitation email (console version for development).
-    
-    In production, this would send a real email via SMTP.
-    For now, it prints to the console.
+    Send invitation email via SMTP.
     
     Args:
         email: Recipient email address
         invite_link: Full invitation acceptance link
-        team_name: Name of the team (optional)
+        team_name: Name of the team
+        inviter_name: Name of the person who sent the invitation
     """
-    print("\n" + "="*80)
-    print("📧 INVITATION EMAIL (Console)")
-    print("="*80)
-    print(f"To: {email}")
-    if team_name:
-        print(f"Subject: You've been invited to join {team_name} on BridgeAI")
-    else:
-        print(f"Subject: You've been invited to join a team on BridgeAI")
-    print("-"*80)
-    print(f"\nYou've been invited to join a team!")
-    print(f"\nClick the link below to accept the invitation:")
-    print(f"\n{invite_link}")
-    print(f"\nThis invitation will expire in 7 days.")
-    print("="*80 + "\n")
+    try:
+        send_invitation_email(
+            to_email=email,
+            invite_link=invite_link,
+            team_name=team_name or "a team",
+            inviter_name=inviter_name
+        )
+    except Exception as e:
+        # Fallback to console logging if email fails
+        print("\n" + "="*80)
+        print("📧 INVITATION EMAIL (Fallback - Email failed)")
+        print("="*80)
+        print(f"To: {email}")
+        if team_name:
+            print(f"Subject: You've been invited to join {team_name} on BridgeAI")
+        else:
+            print(f"Subject: You've been invited to join a team on BridgeAI")
+        print("-"*80)
+        print(f"\nYou've been invited to join a team!")
+        print(f"\nClick the link below to accept the invitation:")
+        print(f"\n{invite_link}")
+        print(f"\nThis invitation will expire in 7 days.")
+        print(f"\nError: {str(e)}")
+        print("="*80 + "\n")
 
 
 def build_invitation_link(token: str) -> str:

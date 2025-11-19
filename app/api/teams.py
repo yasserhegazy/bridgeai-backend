@@ -529,12 +529,28 @@ def invite_team_member(
     # Build invitation link
     invite_link = build_invitation_link(invitation.token)
     
-    # Send "email" to console
+    # Send invitation email via SMTP
     send_invitation_email_to_console(
         email=payload.email,
         invite_link=invite_link,
-        team_name=team.name
+        team_name=team.name,
+        inviter_name=current_user.full_name if hasattr(current_user, 'full_name') else current_user.username
     )
+    
+    # If the invited email belongs to an existing user, create an in-app notification
+    invited_user = db.query(User).filter(User.email == payload.email).first()
+    if invited_user:
+        from app.models.notification import Notification, NotificationType
+        notification = Notification(
+            user_id=invited_user.id,
+            type=NotificationType.TEAM_INVITATION,
+            reference_id=team_id,
+            title="Team Invitation",
+            message=f"{current_user.full_name} has invited you to join the team '{team.name}' as {payload.role}.",
+            is_read=False
+        )
+        db.add(notification)
+        db.commit()
     
     return {
         "invite_link": invite_link,

@@ -13,6 +13,7 @@ from app.schemas.project import (
 from app.models.project import Project, ProjectStatus
 from app.models.team import Team, TeamMember, TeamRole
 from app.models.user import User, UserRole
+from app.models.notification import Notification, NotificationType
 from app.core.security import get_current_user
 
 
@@ -291,6 +292,17 @@ def approve_project(
     project.approved_at = func.now()
     project.rejection_reason = None
     
+    # Create notification for project creator
+    notification = Notification(
+        user_id=project.created_by,
+        type=NotificationType.PROJECT_APPROVAL,
+        reference_id=project.id,
+        title="Project Approved",
+        message=f"Your project '{project.name}' has been approved by {current_user.full_name}.",
+        is_read=False
+    )
+    db.add(notification)
+    
     db.commit()
     db.refresh(project)
     
@@ -326,6 +338,17 @@ def reject_project(
     project.rejection_reason = payload.rejection_reason
     project.approved_by = None
     project.approved_at = None
+    
+    # Create notification for project creator
+    notification = Notification(
+        user_id=project.created_by,
+        type=NotificationType.PROJECT_APPROVAL,
+        reference_id=project.id,
+        title="Project Rejected",
+        message=f"Your project '{project.name}' was rejected by {current_user.full_name}. Reason: {payload.rejection_reason}",
+        is_read=False
+    )
+    db.add(notification)
     
     db.commit()
     db.refresh(project)

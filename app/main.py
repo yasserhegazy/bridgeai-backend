@@ -14,6 +14,7 @@ app = FastAPI(
 # ✅ Define allowed frontend origins
 origins = [
     "http://localhost:3000",  # your frontend React app
+    "http://localhost:3001",  # alternative frontend port
 ]
 
 # ✅ Add CORS middleware only once

@@ -6,6 +6,7 @@ from app.core.security import get_current_user
 from app.models.user import User
 from app.models.team import Team, TeamMember, TeamRole
 from app.models.invitation import Invitation
+from app.models.notification import Notification, NotificationType
 from app.schemas.invitation import (
     InvitationCreate,
     InvitationOut,
@@ -130,6 +131,25 @@ def accept_invitation(
             existing_member.is_active = True
             existing_member.role = TeamRole[invitation.role]
             invitation.status = 'accepted'
+            
+            # Notify team owner/admin about accepted invitation
+            team_owner = db.query(TeamMember).filter(
+                TeamMember.team_id == invitation.team_id,
+                TeamMember.role == TeamRole.owner,
+                TeamMember.is_active == True
+            ).first()
+            
+            if team_owner:
+                notification = Notification(
+                    user_id=team_owner.user_id,
+                    type=NotificationType.TEAM_INVITATION,
+                    reference_id=invitation.team_id,
+                    title="Invitation Accepted",
+                    message=f"{current_user.full_name} ({current_user.email}) has accepted the invitation to join the team as {invitation.role}.",
+                    is_read=False
+                )
+                db.add(notification)
+            
             db.commit()
             
             return InvitationAcceptResponse(
@@ -150,6 +170,24 @@ def accept_invitation(
     
     # Update invitation status
     invitation.status = 'accepted'
+    
+    # Notify team owner/admin about accepted invitation
+    team_owner = db.query(TeamMember).filter(
+        TeamMember.team_id == invitation.team_id,
+        TeamMember.role == TeamRole.owner,
+        TeamMember.is_active == True
+    ).first()
+    
+    if team_owner:
+        notification = Notification(
+            user_id=team_owner.user_id,
+            type=NotificationType.TEAM_INVITATION,
+            reference_id=invitation.team_id,
+            title="New Team Member",
+            message=f"{current_user.full_name} ({current_user.email}) has joined the team as {invitation.role}.",
+            is_read=False
+        )
+        db.add(notification)
     
     db.commit()
     
