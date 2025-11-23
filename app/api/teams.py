@@ -10,7 +10,10 @@ from app.schemas.team import (
 from app.models.team import Team, TeamMember, TeamRole, TeamStatus
 from app.models.user import User
 from app.models.project import Project
+from app.models.invitation import Invitation
 from app.core.security import get_current_user
+from app.schemas.invitation import InvitationCreate, InvitationResponse, InvitationOut
+from app.utils.invitation import create_invitation, send_invitation_email_to_console, build_invitation_link
 
 
 router = APIRouter()
@@ -206,6 +209,14 @@ def delete_team(
     if not team:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Team not found")
     
+    # Check if team has projects
+    project_count = db.query(func.count(Project.id)).filter(Project.team_id == team_id).scalar()
+    if project_count > 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot delete team with {project_count} project(s). Please delete or move all projects first, or archive the team instead."
+        )
+    
     db.delete(team)
     db.commit()
     
@@ -303,7 +314,7 @@ def list_team_members(
     if not include_inactive:
         query = query.filter(TeamMember.is_active == True)
     
-    members = query.all()
+    members = query.options(joinedload(TeamMember.user)).all()
     return members
 
 
@@ -451,3 +462,147 @@ def list_team_projects(
         }
         for project in projects
     ]
+
+
+@router.post("/{team_id}/invite", response_model=InvitationResponse)
+def invite_team_member(
+    team_id: int,
+    payload: InvitationCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Invite a user to join the team by email. Only owners and admins can invite."""
+    # Check if current user has permission to invite
+    team_member = db.query(TeamMember).filter(
+        TeamMember.team_id == team_id,
+        TeamMember.user_id == current_user.id,
+        TeamMember.is_active == True,
+        TeamMember.role.in_([TeamRole.owner, TeamRole.admin])
+    ).first()
+    
+    if not team_member:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied. Only team owners and admins can invite members."
+        )
+    
+    # Check if team exists
+    team = db.query(Team).filter(Team.id == team_id).first()
+    if not team:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Team not found")
+    
+    # Check if user is already a member
+    existing_user = db.query(User).filter(User.email == payload.email).first()
+    if existing_user:
+        existing_member = db.query(TeamMember).filter(
+            TeamMember.team_id == team_id,
+            TeamMember.user_id == existing_user.id,
+            TeamMember.is_active == True
+        ).first()
+        if existing_member:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="User is already a member of this team"
+            )
+    
+    # Check if there's already a pending invitation for this email
+    existing_invitation = db.query(Invitation).filter(
+        Invitation.team_id == team_id,
+        Invitation.email == payload.email,
+        Invitation.status == 'pending'
+    ).first()
+    if existing_invitation:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="An invitation has already been sent to this email"
+        )
+    
+    # Create invitation
+    invitation = create_invitation(
+        db=db,
+        team_id=team_id,
+        email=payload.email,
+        role=payload.role,
+        invited_by_user_id=current_user.id
+    )
+    
+    # Build invitation link
+    invite_link = build_invitation_link(invitation.token)
+    
+    # Send invitation email via SMTP
+    send_invitation_email_to_console(
+        email=payload.email,
+        invite_link=invite_link,
+        team_name=team.name,
+        inviter_name=current_user.full_name if hasattr(current_user, 'full_name') else current_user.username
+    )
+    
+    # If the invited email belongs to an existing user, create an in-app notification
+    invited_user = db.query(User).filter(User.email == payload.email).first()
+    if invited_user:
+        from app.models.notification import Notification, NotificationType
+        notification = Notification(
+            user_id=invited_user.id,
+            type=NotificationType.TEAM_INVITATION,
+            reference_id=team_id,
+            title="Team Invitation",
+            message=f"{current_user.full_name} has invited you to join the team '{team.name}' as {payload.role}.",
+            is_read=False
+        )
+        db.add(notification)
+        db.commit()
+    
+    return {
+        "invite_link": invite_link,
+        "status": invitation.status,
+        "invitation": invitation
+    }
+
+
+@router.get("/{team_id}/invitations", response_model=List[InvitationOut])
+def list_team_invitations(
+    team_id: int,
+    include_expired: bool = False,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    List all invitations for a team.
+    Only team owners and admins can view invitations.
+    """
+    # Check if current user has permission (owner or admin)
+    team_member = db.query(TeamMember).filter(
+        TeamMember.team_id == team_id,
+        TeamMember.user_id == current_user.id,
+        TeamMember.is_active == True,
+        TeamMember.role.in_([TeamRole.owner, TeamRole.admin])
+    ).first()
+    
+    if not team_member:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied. Only team owners and admins can view invitations."
+        )
+    
+    # Check if team exists
+    team = db.query(Team).filter(Team.id == team_id).first()
+    if not team:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Team not found")
+    
+    # Query invitations
+    query = db.query(Invitation).filter(Invitation.team_id == team_id)
+    
+    if not include_expired:
+        # Only show pending invitations by default
+        query = query.filter(Invitation.status == 'pending')
+    
+    invitations = query.order_by(Invitation.created_at.desc()).all()
+    
+    # Update expired invitations
+    for invitation in invitations:
+        if invitation.status == 'pending' and invitation.is_expired():
+            invitation.status = 'expired'
+    
+    db.commit()
+    
+    return invitations

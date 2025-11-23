@@ -18,6 +18,17 @@ class TeamStatus(str, Enum):
     archived = "archived"
 
 
+# User info for team member details
+class UserInfo(BaseModel):
+    id: int
+    full_name: str
+    email: str
+    role: str
+    
+    class Config:
+        from_attributes = True
+
+
 # Team schemas
 class TeamCreate(BaseModel):
     name: str
@@ -117,6 +128,7 @@ class TeamMemberDetailOut(BaseModel):
     is_active: bool
     joined_at: datetime
     updated_at: datetime
+    user: Optional[UserInfo] = None
     
     class Config:
         from_attributes = True
