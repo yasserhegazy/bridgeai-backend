@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session
 from fastapi.security import OAuth2PasswordRequestForm
 from app.db.session import get_db
@@ -10,8 +10,12 @@ from app.core.security import create_access_token, get_current_user
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
+# Get limiter from core
+from app.core.rate_limit import limiter
+
 @router.post("/register", response_model=UserOut)
-def register_user(data: UserCreate, db: Session = Depends(get_db)):
+@limiter.limit("3/hour")
+def register_user(request: Request, data: UserCreate, db: Session = Depends(get_db)):
     existing = db.query(User).filter(User.email == data.email).first()
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -29,7 +33,8 @@ def register_user(data: UserCreate, db: Session = Depends(get_db)):
 
 
 @router.post("/token", response_model=Token)
-def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+@limiter.limit("5/minute")
+def login(request: Request, form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == form_data.username).first()
     if not user or not verify_password(form_data.password, user.password_hash):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials")
@@ -42,7 +47,8 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
 
 
 @router.get("/me", response_model=UserOut)
-def get_me(current_user: User = Depends(get_current_user)):
+@limiter.limit("30/minute")
+def get_me(request: Request, current_user: User = Depends(get_current_user)):
     return current_user
 
 @router.get("/users/{user_id}", response_model=UserOut)

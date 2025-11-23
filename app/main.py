@@ -1,6 +1,10 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from slowapi import _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
 from app.core.config import settings
+from app.core.rate_limit import limiter
 from app.db.session import engine, Base
 from app.api import router as api_router
 from app.api import auth
@@ -10,6 +14,19 @@ app = FastAPI(
     title="BridgeAI Backend",
     version=__version__
 )
+
+# Add rate limiter to app state
+app.state.limiter = limiter
+
+# Custom rate limit exceeded handler
+@app.exception_handler(RateLimitExceeded)
+async def custom_rate_limit_handler(request: Request, exc: RateLimitExceeded):
+    return JSONResponse(
+        status_code=429,
+        content={
+            "detail": "Too many requests. You have exceeded the maximum number of attempts. Please wait a few minutes before trying again."
+        }
+    )
 
 # ✅ Define allowed frontend origins
 origins = [

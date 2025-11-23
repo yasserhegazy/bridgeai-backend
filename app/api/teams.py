@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func
 from typing import List, Optional
@@ -15,8 +15,10 @@ from app.core.security import get_current_user
 from app.schemas.invitation import InvitationCreate, InvitationResponse, InvitationOut
 from app.utils.invitation import create_invitation, send_invitation_email_to_console, build_invitation_link
 
-
 router = APIRouter()
+
+# Get limiter from core
+from app.core.rate_limit import limiter
 
 
 # Team CRUD endpoints
@@ -465,7 +467,9 @@ def list_team_projects(
 
 
 @router.post("/{team_id}/invite", response_model=InvitationResponse)
+@limiter.limit("10/hour")
 def invite_team_member(
+    request: Request,
     team_id: int,
     payload: InvitationCreate,
     db: Session = Depends(get_db),

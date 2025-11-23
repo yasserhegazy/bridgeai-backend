@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Request
 from sqlalchemy.orm import Session, joinedload
 from datetime import datetime
 from app.db.session import get_db
@@ -23,9 +23,14 @@ from app.utils.invitation import (
 
 router = APIRouter()
 
+# Get limiter from core
+from app.core.rate_limit import limiter
+
 
 @router.get("/{token}", response_model=InvitationPublicOut)
+@limiter.limit("10/minute")
 def get_invitation(
+    request: Request,
     token: str,
     db: Session = Depends(get_db)
 ):
@@ -75,7 +80,9 @@ def get_invitation(
 
 
 @router.post("/{token}/accept", response_model=InvitationAcceptResponse)
+@limiter.limit("5/minute")
 def accept_invitation(
+    request: Request,
     token: str,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)
