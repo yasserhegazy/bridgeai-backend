@@ -29,6 +29,33 @@ def register_user(request: Request, data: UserCreate, db: Session = Depends(get_
     db.add(user)
     db.commit()
     db.refresh(user)
+    
+    # Check for pending invitations and create notifications
+    from app.models.invitation import Invitation
+    from app.models.notification import Notification, NotificationType
+    from app.models.team import Team
+    
+    pending_invitations = db.query(Invitation).filter(
+        Invitation.email == data.email,
+        Invitation.status == 'pending'
+    ).all()
+    
+    for invitation in pending_invitations:
+        # Get team details for the notification message
+        team = db.query(Team).filter(Team.id == invitation.team_id).first()
+        if team and invitation.inviter:
+            notification = Notification(
+                user_id=user.id,
+                type=NotificationType.TEAM_INVITATION,
+                reference_id=invitation.team_id,
+                title="Team Invitation",
+                message=f"{invitation.inviter.full_name} has invited you to join the team '{team.name}' as {invitation.role}.",
+                is_read=False
+            )
+            db.add(notification)
+    
+    db.commit()
+    
     return user
 
 
