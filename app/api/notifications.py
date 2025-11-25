@@ -132,7 +132,8 @@ def mark_notification_as_read(
     db.commit()
     db.refresh(notification)
     
-    return notification
+    # Return enriched notification with metadata
+    return enrich_notification(notification, db)
 
 
 @router.patch("/read-all")
