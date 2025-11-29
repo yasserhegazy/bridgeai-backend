@@ -30,8 +30,12 @@ async def custom_rate_limit_handler(request: Request, exc: RateLimitExceeded):
 
 # ✅ Define allowed frontend origins
 origins = [
-    "http://localhost:3000",  # your frontend React app
-    "http://localhost:3001",  # alternative frontend port
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://localhost:3002",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:3001",
+    "http://127.0.0.1:3002",
 ]
 
 # ✅ Add CORS middleware only once
