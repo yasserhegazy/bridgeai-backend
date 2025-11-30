@@ -14,7 +14,7 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 from app.core.rate_limit import limiter
 
 @router.post("/register", response_model=UserOut)
-@limiter.limit("3/hour")
+@limiter.limit("100/hour")
 def register_user(request: Request, data: UserCreate, db: Session = Depends(get_db)):
     existing = db.query(User).filter(User.email == data.email).first()
     if existing:
