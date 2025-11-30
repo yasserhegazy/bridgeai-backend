@@ -113,6 +113,31 @@ def get_user_team_ids(db: Session, user_id: int) -> list[int]:
 
 # ==================== Endpoints ====================
 
+@router.get("/pending", response_model=list[ProjectOut])
+def list_pending_projects(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    List all pending project requests for BA review.
+    Only Business Analysts can access this endpoint.
+    Returns pending projects from all teams the BA is a member of.
+    """
+    # Verify BA role
+    verify_ba_role(current_user)
+    
+    # Get all team IDs where BA is a member
+    team_ids = get_user_team_ids(db, current_user.id)
+    
+    # Query pending projects from these teams
+    pending_projects = db.query(Project).filter(
+        Project.team_id.in_(team_ids),
+        Project.status == 'pending'
+    ).order_by(Project.created_at.desc()).all()
+    
+    return pending_projects
+
+
 @router.post("/", response_model=ProjectOut)
 def create_project(
     payload: ProjectCreate, 
