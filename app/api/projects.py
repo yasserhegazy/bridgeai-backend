@@ -129,13 +129,33 @@ def list_pending_projects(
     # Get all team IDs where BA is a member
     team_ids = get_user_team_ids(db, current_user.id)
     
-    # Query pending projects from these teams
+    # Query pending projects from these teams with creator info
     pending_projects = db.query(Project).filter(
         Project.team_id.in_(team_ids),
         Project.status == 'pending'
     ).order_by(Project.created_at.desc()).all()
     
-    return pending_projects
+    # Enrich with creator information
+    result = []
+    for project in pending_projects:
+        project_dict = {
+            "id": project.id,
+            "name": project.name,
+            "description": project.description,
+            "team_id": project.team_id,
+            "created_by": project.created_by,
+            "created_by_name": project.creator.full_name if project.creator else None,
+            "created_by_email": project.creator.email if project.creator else None,
+            "status": project.status,
+            "approved_by": project.approved_by,
+            "approved_at": project.approved_at,
+            "rejection_reason": project.rejection_reason,
+            "created_at": project.created_at,
+            "updated_at": project.updated_at,
+        }
+        result.append(project_dict)
+    
+    return result
 
 
 @router.post("/", response_model=ProjectOut)

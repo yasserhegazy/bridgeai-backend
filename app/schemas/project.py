@@ -22,6 +22,8 @@ class ProjectOut(BaseModel):
     description: Optional[str]
     team_id: int
     created_by: int
+    created_by_name: Optional[str] = None
+    created_by_email: Optional[str] = None
     status: ProjectStatus
     approved_by: Optional[int] = None
     approved_at: Optional[datetime] = None
