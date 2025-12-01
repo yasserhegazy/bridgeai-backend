@@ -50,7 +50,6 @@ app.add_middleware(
 # ✅ Include routers
 app.include_router(api_router, prefix="/api")
 app.include_router(auth.router)  # make sure this defines /auth/token
-app.include_router(ai.router, prefix="/api/ai")
 
 @app.get("/")
 def root():

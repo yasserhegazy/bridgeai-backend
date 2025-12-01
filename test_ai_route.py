@@ -14,7 +14,7 @@ def test_echo():
         print(f"Health check failed: {e}")
         sys.exit(1)
 
-    url = f"{base_url}/ai/echo"
+    url = f"{base_url}/api/ai/echo"
     payload = {"user_input": "hello world"}
     try:
         print(f"Sending POST request to {url} with payload: {payload}")
