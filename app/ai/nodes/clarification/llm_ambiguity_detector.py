@@ -46,19 +46,19 @@ USER REQUIREMENT:
 
 Return ONLY valid JSON in this structure:
 
-{
+{{
   "ambiguities": [
-    {
+    {{
       "type": "missing|vague|incomplete|ambiguous|inconsistent",
       "field": "the area needing clarification",
       "reason": "why it is ambiguous",
       "severity": "high|medium|low",
       "suggestion": "a good clarification question"
-    }
+    }}
   ],
   "overall_clarity_score": 0-100,
   "summary": "short summary of requirement quality"
-}
+}}
 """
 
     QUESTION_PROMPT = """
@@ -74,17 +74,17 @@ Generate 3–5 conversational questions that:
 - Feel like natural conversation
 
 Return JSON:
-{
+{{
   "questions": ["q1", "q2", ...]
-}
+}}
 """
 
     def __init__(self, model_name="gpt-4o-mini", temperature=0.2):
-        import os
-        if not os.getenv("OPENAI_API_KEY"):
+        from app.core.config import settings
+        if not settings.OPENAI_API_KEY:
             raise ValueError("OPENAI_API_KEY not set in environment.")
         
-        self.llm = ChatOpenAI(model=model_name, temperature=temperature)
+        self.llm = ChatOpenAI(model=model_name, temperature=temperature, api_key=settings.OPENAI_API_KEY)
         self.json_parser = JsonOutputParser()
 
         self.analysis_chain = (
