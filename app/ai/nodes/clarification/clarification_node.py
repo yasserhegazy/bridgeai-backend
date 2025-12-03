@@ -1,51 +1,43 @@
 """
-Clarification Node Module
+Clarification Node Module (LLM-Powered)
 
-This module implements the clarification agent node for LangGraph.
-It analyzes user input for ambiguities and generates clarification questions
-to improve requirement quality.
+This node uses the LLM ambiguity detector to:
+- Analyze requirement clarity
+- Detect ambiguities dynamically
+- Generate clarification questions
+- Update AgentState for LangGraph
 """
 
 from typing import Dict, Any
 from app.ai.state import AgentState
-from app.ai.nodes.clarification.ambiguity_detector import AmbiguityDetector
+from app.ai.nodes.clarification.llm_ambiguity_detector import LLMAmbiguityDetector
 
 
 def clarification_node(state: AgentState) -> Dict[str, Any]:
-    """
-    Clarification agent node that detects ambiguities and generates questions.
-    
-    This node:
-    1. Analyzes user input for missing, incomplete, or ambiguous information
-    2. Generates targeted clarification questions
-    3. Updates the state with detected ambiguities and questions
-    
-    Args:
-        state: Current agent state containing user input and context
-        
-    Returns:
-        Updated state with clarification questions and ambiguities
-    """
+
     user_input = state.get("user_input", "")
     conversation_history = state.get("conversation_history", [])
     extracted_fields = state.get("extracted_fields", {})
-    
-    # Initialize the ambiguity detector
-    detector = AmbiguityDetector()
-    
-    # Build context for detection
+
+    # Build context
     context = {
         "conversation_history": conversation_history,
         "extracted_fields": extracted_fields
     }
-    
-    # Detect ambiguities
-    ambiguities = detector.detect_ambiguities(user_input, context)
-    
-    # Generate clarification questions
-    clarification_questions = detector.generate_clarification_questions(ambiguities)
-    
-    # Prepare ambiguity summary
+
+    # Initialize pure LLM detector
+    detector = LLMAmbiguityDetector()
+
+    # Perform full LLM analysis
+    result = detector.analyze_and_generate_questions(user_input, context)
+
+    ambiguities = result["ambiguities"]
+    clarification_questions = result["clarification_questions"]
+    clarity_score = result["clarity_score"]
+    summary = result["summary"]
+    needs_clarification = result["needs_clarification"]
+
+    # Build ambiguity summary for API
     ambiguity_summary = [
         {
             "type": amb.type,
@@ -56,36 +48,31 @@ def clarification_node(state: AgentState) -> Dict[str, Any]:
         }
         for amb in ambiguities
     ]
-    
-    # Determine if clarification is needed
-    needs_clarification = len(clarification_questions) > 0
-    
-    # Generate response message
+
+    # Build response message
     if needs_clarification:
-        response = "I'd like to clarify a few points to ensure I capture your requirements accurately:\n\n"
-        for i, question in enumerate(clarification_questions, 1):
-            response += f"{i}. {question}\n"
+        response = (
+            "I'd like to clarify a few points to ensure the requirements are fully understood:\n\n"
+        )
+        for i, q in enumerate(clarification_questions, 1):
+            response += f"{i}. {q}\n"
     else:
-        response = "Thank you! Your requirements are clear. I'll proceed with processing them."
-    
-    # Update state
+        response = (
+            f"Your requirements look clear! (Clarity Score: {clarity_score}/100)\n"
+            "Proceeding to the next step."
+        )
+
     return {
         "clarification_questions": clarification_questions,
         "ambiguities": ambiguity_summary,
         "needs_clarification": needs_clarification,
+        "clarity_score": clarity_score,
+        "quality_summary": summary,
         "output": response,
         "last_node": "clarification"
     }
 
 
 def should_request_clarification(state: AgentState) -> bool:
-    """
-    Conditional function to determine if clarification is needed.
-    
-    Args:
-        state: Current agent state
-        
-    Returns:
-        True if clarification questions exist, False otherwise
-    """
+    """Routing function for LangGraph."""
     return state.get("needs_clarification", False)
