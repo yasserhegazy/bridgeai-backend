@@ -15,8 +15,8 @@ class Settings(BaseSettings):
     SMTP_FROM_EMAIL: str
     SMTP_FROM_NAME: str = "BridgeAI"
     
-    # AI settings
-    GROQ_API_KEY: str
+    # AI API keys
+    groq_api_key: str
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
