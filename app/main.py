@@ -1,3 +1,6 @@
+from dotenv import load_dotenv
+load_dotenv()
+import logging
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -10,6 +13,12 @@ from app.api import router as api_router
 from app.api import auth
 from app.api import ai
 from app import __version__
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 
 app = FastAPI(
     title="BridgeAI Backend",
