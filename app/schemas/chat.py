@@ -46,6 +46,7 @@ class SessionCreate(SessionBase):
 
 class SessionUpdate(BaseModel):
     status: Optional[SessionStatusEnum] = None
+    name: Optional[str] = None
 
 
 class SessionOut(BaseModel):

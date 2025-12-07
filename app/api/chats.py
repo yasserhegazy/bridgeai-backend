@@ -154,7 +154,10 @@ def update_project_chat(
             detail="Chat session not found in this project"
         )
     
-    # Update session status
+    # Update session fields
+    if session_update.name is not None:
+        session.name = session_update.name
+
     if session_update.status is not None:
         session.status = session_update.status
         
