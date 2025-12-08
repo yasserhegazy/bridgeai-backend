@@ -1,22 +1,57 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, WebSocket, WebSocketDisconnect, Query
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import desc, func
-from typing import List
+from typing import List, Dict
+from datetime import datetime
+import json
 from app.db.session import get_db
-from app.core.security import get_current_user
+from app.core.security import get_current_user, decode_access_token
 from app.models.user import User
 from app.models.session_model import SessionModel, SessionStatus
-from app.models.message import Message
+from app.models.message import Message, SenderType
 from app.schemas.chat import (
     SessionCreate,
     SessionOut,
     SessionUpdate,
-    SessionListOut
+    SessionListOut,
+    MessageOut
 )
 # Import helper functions from projects API
 from app.api.projects import get_project_or_404, verify_team_membership
 
 router = APIRouter()
+
+# WebSocket connection manager
+class ConnectionManager:
+    def __init__(self):
+        # Store active connections per session
+        self.active_connections: Dict[int, List[WebSocket]] = {}
+    
+    async def connect(self, websocket: WebSocket, session_id: int):
+        await websocket.accept()
+        if session_id not in self.active_connections:
+            self.active_connections[session_id] = []
+        self.active_connections[session_id].append(websocket)
+    
+    def disconnect(self, websocket: WebSocket, session_id: int):
+        if session_id in self.active_connections:
+            self.active_connections[session_id].remove(websocket)
+            if not self.active_connections[session_id]:
+                del self.active_connections[session_id]
+    
+    async def send_personal_message(self, message: str, websocket: WebSocket):
+        await websocket.send_text(message)
+    
+    async def broadcast_to_session(self, message: dict, session_id: int):
+        if session_id in self.active_connections:
+            message_json = json.dumps(message)
+            for connection in self.active_connections[session_id]:
+                try:
+                    await connection.send_text(message_json)
+                except:
+                    pass
+
+manager = ConnectionManager()
 
 
 # ==================== CRUD Endpoints ====================
@@ -210,3 +245,134 @@ def delete_project_chat(
     db.commit()
     
     return None
+
+
+# ==================== WebSocket Endpoint ====================
+
+@router.websocket('/{project_id}/chats/{chat_id}/ws')
+async def websocket_endpoint(
+    websocket: WebSocket,
+    project_id: int,
+    chat_id: int,
+    token: str = Query(...),
+    db: Session = Depends(get_db)
+):
+    """
+    WebSocket endpoint for real-time chat communication.
+    
+    Client should connect with: ws://host/api/projects/{project_id}/chats/{chat_id}/ws?token={access_token}
+    
+    Message format (from client):
+    {
+        "content": "message content",
+        "sender_type": "client" | "ba"
+    }
+    
+    Message format (to client):
+    {
+        "id": 123,
+        "session_id": 1,
+        "sender_type": "client" | "ai" | "ba",
+        "sender_id": 1,
+        "content": "message content",
+        "timestamp": "2025-12-08T10:30:00Z"
+    }
+    """
+    
+    # Authenticate user via token
+    try:
+        payload = decode_access_token(token)
+        user_id = payload.get("sub")
+        if user_id is None:
+            await websocket.close(code=1008, reason="Invalid authentication token")
+            return
+        
+        # Get user from database
+        user = db.query(User).filter(User.id == int(user_id)).first()
+        if not user:
+            await websocket.close(code=1008, reason="User not found")
+            return
+    except Exception as e:
+        await websocket.close(code=1008, reason="Authentication failed")
+        return
+    
+    # Verify project access
+    try:
+        project = get_project_or_404(db, project_id)
+        verify_team_membership(db, project.team_id, user.id)
+    except HTTPException:
+        await websocket.close(code=1008, reason="Access denied to project")
+        return
+    
+    # Verify session exists and belongs to project
+    session = db.query(SessionModel).filter(
+        SessionModel.id == chat_id,
+        SessionModel.project_id == project_id
+    ).first()
+    
+    if not session:
+        await websocket.close(code=1008, reason="Chat session not found")
+        return
+    
+    # Connect to WebSocket
+    await manager.connect(websocket, chat_id)
+    
+    try:
+        while True:
+            # Receive message from client
+            data = await websocket.receive_text()
+            
+            try:
+                message_data = json.loads(data)
+                content = message_data.get("content", "").strip()
+                sender_type_str = message_data.get("sender_type", "client")
+                
+                if not content:
+                    continue
+                
+                # Validate sender_type
+                try:
+                    sender_type = SenderType[sender_type_str]
+                except KeyError:
+                    await websocket.send_text(json.dumps({
+                        "error": f"Invalid sender_type: {sender_type_str}"
+                    }))
+                    continue
+                
+                # Save message to database
+                new_message = Message(
+                    session_id=chat_id,
+                    sender_type=sender_type,
+                    sender_id=user.id,
+                    content=content
+                )
+                
+                db.add(new_message)
+                db.commit()
+                db.refresh(new_message)
+                
+                # Broadcast message to all connected clients in this session
+                message_response = {
+                    "id": new_message.id,
+                    "session_id": new_message.session_id,
+                    "sender_type": new_message.sender_type.value,
+                    "sender_id": new_message.sender_id,
+                    "content": new_message.content,
+                    "timestamp": new_message.timestamp.isoformat()
+                }
+                
+                await manager.broadcast_to_session(message_response, chat_id)
+                
+            except json.JSONDecodeError:
+                await websocket.send_text(json.dumps({
+                    "error": "Invalid JSON format"
+                }))
+            except Exception as e:
+                await websocket.send_text(json.dumps({
+                    "error": f"Error processing message: {str(e)}"
+                }))
+    
+    except WebSocketDisconnect:
+        manager.disconnect(websocket, chat_id)
+    except Exception as e:
+        manager.disconnect(websocket, chat_id)

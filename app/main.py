@@ -53,6 +53,9 @@ app.add_middleware(
     allow_headers=["*"],  # allow all headers
 )
 
+# Enable WebSocket support
+# WebSocket connections are handled by specific endpoints in the API routers
+
 # ✅ Create database tables (optional)
 # Base.metadata.create_all(bind=engine)
 
