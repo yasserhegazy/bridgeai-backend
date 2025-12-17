@@ -16,3 +16,7 @@ class AgentState(TypedDict, total=False):
 
     last_node: Optional[str]
     next_action: Optional[str]
+    
+    # Memory and context
+    project_id: Optional[int]
+    db: Optional[Any]  # SQLAlchemy Session for memory queries

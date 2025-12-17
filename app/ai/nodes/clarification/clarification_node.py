@@ -1,8 +1,9 @@
 """
 Clarification Node using Groq LLM for requirement ambiguity detection.
+Integrates memory search to provide context from previous interactions.
 """
 
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from app.ai.state import AgentState
 from app.ai.nodes.clarification.llm_ambiguity_detector import LLMAmbiguityDetector
 
@@ -11,12 +12,37 @@ def clarification_node(state: AgentState) -> Dict[str, Any]:
     user_input = state.get("user_input", "")
     conversation_history = state.get("conversation_history", [])
     extracted_fields = state.get("extracted_fields", {})
+    project_id = state.get("project_id")
+    db = state.get("db")  # Optional: database session for memory lookup
 
     # Build context payload
     context = {
         "conversation_history": conversation_history,
         "extracted_fields": extracted_fields
     }
+    
+    # Enrich context with relevant memories if available
+    if db and project_id:
+        try:
+            from app.ai.memory_service import search_project_memories
+            relevant_memories = search_project_memories(
+                db=db,
+                project_id=project_id,
+                query=user_input,
+                limit=3,
+                similarity_threshold=0.2
+            )
+            context["relevant_memories"] = [
+                {
+                    "text": m["text"],
+                    "source_type": m["source_type"],
+                    "similarity": m["similarity_score"]
+                }
+                for m in relevant_memories
+            ]
+        except Exception as e:
+            # Gracefully handle memory lookup failures
+            context["relevant_memories"] = []
 
     # Run Groq-powered ambiguity detection
     detector = LLMAmbiguityDetector()
