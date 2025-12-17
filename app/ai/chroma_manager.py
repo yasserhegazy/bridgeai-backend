@@ -70,14 +70,32 @@ def initialize_chroma() -> Tuple[chromadb.Client, Any]:
         
         # Load or create collection WITH embedding function
         collection_name = settings.CHROMA_COLLECTION_NAME
-        _collection = _chroma_client.get_or_create_collection(
-            name=collection_name,
-            embedding_function=_embedding_function,  # CRITICAL: Pass embedding function
-            metadata={
-                "hnsw:space": "cosine",  # Cosine similarity metric
-                "description": "Project memory embeddings"
-            }
-        )
+        try:
+            _collection = _chroma_client.get_or_create_collection(
+                name=collection_name,
+                embedding_function=_embedding_function,  # CRITICAL: Pass embedding function
+                metadata={
+                    "hnsw:space": "cosine",  # Cosine similarity metric
+                    "description": "Project memory embeddings"
+                }
+            )
+        except Exception as e:
+            if "Embedding function conflict" in str(e):
+                logger.warning(
+                    f"Conflict detected in ChromaDB collection '{collection_name}'. "
+                    f"Deleting and recreating with correct embedding function. Error: {e}"
+                )
+                _chroma_client.delete_collection(collection_name)
+                _collection = _chroma_client.get_or_create_collection(
+                    name=collection_name,
+                    embedding_function=_embedding_function,
+                    metadata={
+                        "hnsw:space": "cosine",
+                        "description": "Project memory embeddings"
+                    }
+                )
+            else:
+                raise e
         logger.debug(f"Collection loaded: {collection_name}")
         
         # Test connection by getting collection count
