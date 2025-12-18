@@ -5,6 +5,7 @@ class AgentState(TypedDict, total=False):
     output: Optional[str]
     conversation_history: List[str]
 
+    # Clarification Agent fields
     clarification_questions: List[str]
     ambiguities: List[Dict[str, Any]]
     needs_clarification: bool
@@ -14,6 +15,13 @@ class AgentState(TypedDict, total=False):
 
     extracted_fields: Dict[str, Any]
 
+    # Template Filler Agent fields (CRS)
+    crs_content: Optional[str]  # JSON string of filled CRS template
+    crs_template: Optional[Dict[str, Any]]  # Dictionary representation of CRS
+    summary_points: Optional[List[str]]  # Key summary points from CRS
+    crs_is_complete: bool  # Whether CRS has sufficient information
+
+    # Workflow control
     last_node: Optional[str]
     next_action: Optional[str]
     
