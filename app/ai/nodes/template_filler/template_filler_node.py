@@ -43,26 +43,30 @@ def template_filler_node(state: AgentState) -> Dict[str, Any]:
     )
 
     # Build response message
+    # Build response message only if complete
     if result["is_complete"]:
         response = "✅ I've generated a complete CRS document based on your requirements.\n\n"
         response += "**Summary:**\n"
         for point in result["summary_points"]:
             response += f"• {point}\n"
         response += f"\n{result['overall_summary']}"
-    else:
-        response = "📝 I've captured your requirements in a CRS document.\n\n"
-        response += "**Summary so far:**\n"
-        for point in result["summary_points"]:
-            response += f"• {point}\n"
-        response += "\n_Note: Some information may still be missing for a complete specification._"
+        
+        return {
+            "crs_content": result["crs_content"],
+            "crs_template": result["crs_template"],
+            "summary_points": result["summary_points"],
+            "extracted_fields": result["crs_template"],
+            "output": response,
+            "last_node": "template_filler",
+            "crs_is_complete": result["is_complete"]
+        }
 
-    # Return updated state
+    # If not complete, update state silently (preserve previous output)
     return {
         "crs_content": result["crs_content"],
         "crs_template": result["crs_template"],
         "summary_points": result["summary_points"],
-        "extracted_fields": result["crs_template"],  # Use template as new extracted fields
-        "output": response,
+        "extracted_fields": result["crs_template"],
         "last_node": "template_filler",
         "crs_is_complete": result["is_complete"]
     }

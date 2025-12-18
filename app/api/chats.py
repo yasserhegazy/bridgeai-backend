@@ -257,6 +257,9 @@ async def websocket_endpoint(
     token: str = Query(...),
     db: Session = Depends(get_db)
 ):
+    from app.core.config import settings
+    safe_db_url = str(settings.DATABASE_URL).replace(settings.DATABASE_URL.split(":")[2].split("@")[0], "***") if "@" in str(settings.DATABASE_URL) else settings.DATABASE_URL
+    print(f"[WebSocket] Connecting using DB URL: {safe_db_url}")
     """
     WebSocket endpoint for real-time chat communication.
     
@@ -393,11 +396,27 @@ async def websocket_endpoint(
                     try:
                         print(f"[WebSocket] Invoking AI for message: {content}")
                         
+                        # Fetch conversation history (get last 20 messages)
+                        history_messages = db.query(Message).filter(
+                            Message.session_id == chat_id
+                        ).order_by(Message.timestamp.desc()).limit(20).all()
+                        
+                        # Reverse to chronological order (Oldest -> Newest)
+                        history_messages.reverse()
+                        
+                        history_strings = []
+                        for msg in history_messages:
+                            role = "User" if msg.sender_type == SenderType.client else "AI"
+                            history_strings.append(f"{role}: {msg.content}")
+
                         # Prepare state for AI
                         state = {
                             "user_input": content,
-                            "conversation_history": [],  # TODO: Fetch history if needed
-                            "extracted_fields": {}
+                            "conversation_history": history_strings,
+                            "extracted_fields": {},
+                            "project_id": project_id,
+                            "db": db,
+                            "message_id": new_message.id  # Pass message ID for memory linking
                         }
                         
                         # Invoke graph (using ainvoke if available, otherwise synchronous invoke)
@@ -430,6 +449,10 @@ async def websocket_endpoint(
                         
                         await manager.broadcast_to_session(ai_response_payload, chat_id)
                         print(f"[WebSocket] AI response sent: {ai_output}")
+
+                        # Count total messages to verify storage
+                        total_msg_count = db.query(Message).filter(Message.session_id == chat_id).count()
+                        print(f"[WebSocket] Total messages in DB for session {chat_id}: {total_msg_count}")
                         
                     except Exception as e:
                         print(f"[WebSocket] AI generation error: {str(e)}")

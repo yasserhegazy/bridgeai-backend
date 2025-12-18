@@ -13,6 +13,7 @@ from app.api import router as api_router
 from app.api import auth
 from app.api import ai
 from app import __version__
+from app.ai.chroma_manager import initialize_chroma
 
 # Configure logging
 logging.basicConfig(
@@ -58,6 +59,43 @@ app.add_middleware(
 
 # ✅ Create database tables (optional)
 # Base.metadata.create_all(bind=engine)
+
+# ======================== CHROMEDB INITIALIZATION ========================
+# Location: This is where ChromaDB is initialized (app startup)
+# 
+# Initialization Flow:
+#   1. Creates/loads persistent database at ./chroma_db
+#   2. Configures SentenceTransformerEmbeddingFunction (all-MiniLM-L6-v2)
+#   3. Loads collection named "project_memories" WITH embedding function
+#   4. Sets up cosine similarity search
+#   5. Stores client/collection in app.state (singleton pattern)
+#
+# Singleton Pattern:
+#   - Client and collection stored in app.state
+#   - All modules access via app.state (not global variables)
+#   - Ensures single instance across entire application
+#
+# Critical: Embedding Function
+#   - ChromaDB REQUIRES explicit embedding function
+#   - SentenceTransformerEmbeddingFunction(all-MiniLM-L6-v2) configured here
+#   - Downloads ~22MB model on first run, cached locally
+#
+# Error Handling:
+#   - If initialization fails, error is logged
+#   - App continues running (memory features unavailable)
+#   - Can be manually re-initialized later
+#
+# See: app/ai/chroma_manager.py for implementation
+# See: TECHNICAL_CLARIFICATIONS.md for detailed explanation
+# ======================== CHROMEDB INITIALIZATION ========================
+
+try:
+    chroma_client, chroma_collection = initialize_chroma()
+    app.state.chroma_client = chroma_client
+    app.state.chroma_collection = chroma_collection
+    logging.info("ChromaDB singleton stored in app.state")
+except Exception as e:
+    logging.error(f"Failed to initialize ChromaDB: {str(e)}")
 
 # ✅ Include routers
 app.include_router(api_router, prefix="/api")

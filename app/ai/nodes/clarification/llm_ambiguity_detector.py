@@ -29,7 +29,31 @@ class LLMAmbiguityDetector:
     ANALYSIS_PROMPT = """
 You are a senior Business Analyst specialized in requirements analysis.
 
-Analyze the client's requirement below and identify any ambiguities or missing information that would prevent a developer from implementing the requirement.
+Analyze the client's requirement below.
+First, determine the INTENT of the user input:
+- "requirement": The user is describing a feature, rule, or constraint. ALSO use this intent if the user asks "what is missing?", "what's next?", "continue", or "what questions remain?", which implies re-evaluating the current state of requirements.
+- "greeting": The user is saying hello or small talk.
+- "question": The user is asking a question about YOU (the AI) or the process (e.g. "who are you?"). EXCLUDE questions about project requirements status.
+- "deferral": The user wants to skip, pass, answer later, or explicitly declines to provide details (e.g., "skip", "I don't know", "later").
+- "other": Anything else.
+
+IF INTENT IS "greeting" OR "question":
+- Return "ambiguities": []
+- Return "overall_clarity_score": 100
+- Return "summary": "User is engaging in conversation, not specifying requirements."
+- Return "intent": "greeting" (or "question")
+
+IF INTENT IS "deferral":
+- Return "ambiguities": []
+- Return "overall_clarity_score": 0
+- Return "summary": "User chose to defer providing details."
+- Return "intent": "deferral"
+
+IF INTENT IS "requirement":
+- If the input is a specific requirement, analyze IT.
+- If the input is a request for status ("what is missing?", "continue"), analyze the ENTIRE CONTEXT (History + Memories) to identify ANY missing information or unresolved ambiguities, even if they were previously deferred.
+- Identify any ambiguities or missing information that would prevent a developer from implementing the requirement.
+- Use the CONTEXT to understand if a requirement contradicts or duplicates previous ones.
 
 USER INPUT:
 {user_input}
@@ -38,6 +62,9 @@ CONTEXT:
 Conversation History:
 {conversation_history}
 
+Relevant Memories (Previous Requirements/Context):
+{relevant_memories}
+
 Extracted Fields:
 {extracted_fields}
 
@@ -45,6 +72,7 @@ IMPORTANT: Return ONLY a valid JSON object without any markdown formatting or co
 
 Your response must be a pure JSON object with this exact structure:
 {{
+  "intent": "requirement",
   "ambiguities": [
     {{
       "type": "missing",
@@ -133,8 +161,7 @@ Return pure JSON now:
     def _call_llm(self, messages):
         """Call Groq LLM and return the response content."""
         try:
-            response = self.llm.invoke(messages)
-            return response.content
+            return self.llm.invoke(messages).content
         except Exception as e:
             logger.error(f"LLM call failed: {str(e)}")
             raise
@@ -149,6 +176,13 @@ Return pure JSON now:
             conv_history = context.get("conversation_history", [])
             history_text = "\n".join(conv_history) if conv_history else "No previous conversation"
             
+            # Format relevant memories
+            memories = context.get("relevant_memories", [])
+            if memories:
+                memories_text = "\n".join([f"- {m['text']} (Similarity: {m.get('similarity', 0):.2f})" for m in memories])
+            else:
+                memories_text = "No relevant past memories found."
+
             # Format extracted fields
             fields = context.get("extracted_fields", {})
             fields_text = json.dumps(fields, indent=2) if fields else "No extracted fields yet"
@@ -156,6 +190,7 @@ Return pure JSON now:
             messages = self.analysis_prompt.format_messages(
                 user_input=user_input,
                 conversation_history=history_text,
+                relevant_memories=memories_text,
                 extracted_fields=fields_text,
             )
 
@@ -177,13 +212,14 @@ Return pure JSON now:
 
             clarity_score = result.get("overall_clarity_score", 50)
             summary = result.get("summary", "Analysis completed")
+            intent = result.get("intent", "requirement")
 
-            return ambiguities, clarity_score, summary
+            return ambiguities, clarity_score, summary, intent
             
         except Exception as e:
             logger.error(f"Analysis failed: {str(e)}")
             # Return safe defaults on error
-            return [], 50, f"Analysis error: {str(e)}"
+            return [], 50, f"Analysis error: {str(e)}", "requirement"
 
     # -----------------------------------
     # Question Generation
@@ -225,18 +261,24 @@ Return pure JSON now:
         """Complete workflow: analyze requirements and generate questions."""
         logger.info(f"Analyzing requirement: {user_input[:100]}...")
         
-        ambiguities, score, summary = self.analyze(user_input, context)
+        ambiguities, score, summary, intent = self.analyze(user_input, context)
         
         # Only generate questions for significant ambiguities or low clarity scores
-        needs_clarification = len(ambiguities) > 0 or score < 70
+        # AND if the intent is actually a requirement analysis
+        needs_clarification = (len(ambiguities) > 0 or score < 70) and intent == "requirement"
         
         questions = []
         if needs_clarification:
             questions = self.generate_questions(ambiguities)
 
-        logger.info(f"Analysis complete. Score: {score}, Questions: {len(questions)}")
+        logger.info(f"Analysis complete. Score: {score}, Questions: {len(questions)}, Intent: {intent}")
         
         return {
+            "ambiguities": ambiguities,
+            "clarification_questions": questions,
+            "clarity_score": score,
+            "summary": summary,
+            "intent": intent,
             "ambiguities": ambiguities,
             "clarification_questions": questions,
             "clarity_score": score,

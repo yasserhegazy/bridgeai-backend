@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+import os
 
 class Settings(BaseSettings):
     DATABASE_URL: str
@@ -14,10 +15,13 @@ class Settings(BaseSettings):
     SMTP_PASSWORD: str
     SMTP_FROM_EMAIL: str
     SMTP_FROM_NAME: str = "BridgeAI"
+    # AI settings
+    GROQ_API_KEY: str
     
-    # AI API keys
-    groq_api_key: str
-
+    # ChromaDB settings
+    CHROMA_DB_PATH: str = "./chroma_db"
+    CHROMA_COLLECTION_NAME: str = "project_memories"
+    EMBEDDING_MODEL: str = "openai"  # or "default" for Chroma's default
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8")
 
 settings = Settings()
