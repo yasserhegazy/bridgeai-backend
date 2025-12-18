@@ -396,10 +396,13 @@ async def websocket_endpoint(
                     try:
                         print(f"[WebSocket] Invoking AI for message: {content}")
                         
-                        # Fetch conversation history
+                        # Fetch conversation history (get last 20 messages)
                         history_messages = db.query(Message).filter(
                             Message.session_id == chat_id
-                        ).order_by(Message.timestamp.asc()).limit(20).all()
+                        ).order_by(Message.timestamp.desc()).limit(20).all()
+                        
+                        # Reverse to chronological order (Oldest -> Newest)
+                        history_messages.reverse()
                         
                         history_strings = []
                         for msg in history_messages:

@@ -65,6 +65,8 @@ def clarification_node(state: AgentState) -> Dict[str, Any]:
         response = "Hello! How can I help you with your project requirements today?"
     elif intent == "question":
         response = "I am a Business Analyst AI assistant. I can help you define and clarify your project requirements. Please describe what you'd like to build."
+    elif intent == "deferral":
+        response = "Understood. We will skip those details for now."
     else:
         # Default for clear requirements
         response = f"Your requirements are clear. (Clarity Score: {clarity_score}/100)"
