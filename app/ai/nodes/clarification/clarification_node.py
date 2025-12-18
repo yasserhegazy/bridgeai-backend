@@ -72,6 +72,7 @@ def clarification_node(state: AgentState) -> Dict[str, Any]:
         response = f"Your requirements are clear. (Clarity Score: {clarity_score}/100)"
 
     # Update state and return
+    # Update state and return
     return {
         "clarification_questions": clarification_questions,
         "ambiguities": [
@@ -88,9 +89,24 @@ def clarification_node(state: AgentState) -> Dict[str, Any]:
         "clarity_score": clarity_score,
         "quality_summary": summary,
         "output": response,
-        "last_node": "clarification"
+        "last_node": "clarification",
+        "intent": intent
     }
 
 
 def should_request_clarification(state: AgentState) -> bool:
-    return state.get("needs_clarification", False)
+    """
+    Determine if the workflow should stop after clarification.
+    Returns True (stop) if:
+    1. Clarification is needed (ambiguities found)
+    2. Intent is NOT a requirement (greeting, question, deferral)
+    """
+    needs_clarification = state.get("needs_clarification", False)
+    intent = state.get("intent", "requirement")
+    
+    # If it's a greeting/question/deferral, we stop here and return the response
+    if intent != "requirement":
+        return True
+        
+    # If it's a requirement but needs clarification, we also stop
+    return needs_clarification

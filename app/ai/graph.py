@@ -20,7 +20,7 @@ def create_graph():
     1. User input → Clarification Agent
     2. If clarification is needed → END (return questions to client)
     3. If no clarification needed → Template Filler Agent
-    4. Template Filler fills CRS → END (return CRS to client)
+    4. Template Filler fills CRS → Memory (store requirement) → END
     """
 
     # Create graph with AgentState as the shared memory type
@@ -47,18 +47,19 @@ def create_graph():
         should_request_clarification,     # function returns: True or False
         {
             True: END,                    # If clarification needed → stop workflow
-            False: "memory"               # Otherwise continue to memory node
             False: "template_filler"      # Otherwise continue to template filler
         }
     )
 
     # ----------------------------
+    # TEMPLATE FILLER → MEMORY
+    # ----------------------------
+    graph.add_edge("template_filler", "memory")
+
+    # ----------------------------
     # MEMORY → END
     # ----------------------------
     graph.add_edge("memory", END)
-    # TEMPLATE FILLER → END
-    # ----------------------------
-    graph.add_edge("template_filler", END)
 
     # ----------------------------
     # COMPILE GRAPH
