@@ -4,6 +4,7 @@ class AgentState(TypedDict, total=False):
     user_input: str
     output: Optional[str]
     conversation_history: List[str]
+    user_id: Optional[int]
 
     # Clarification Agent fields
     clarification_questions: List[str]
@@ -20,6 +21,8 @@ class AgentState(TypedDict, total=False):
     crs_template: Optional[Dict[str, Any]]  # Dictionary representation of CRS
     summary_points: Optional[List[str]]  # Key summary points from CRS
     crs_is_complete: bool  # Whether CRS has sufficient information
+    crs_document_id: Optional[int]  # Database ID of the persisted CRS document
+    crs_version: Optional[int]  # Version number of the CRS document
 
     # Workflow control
     last_node: Optional[str]

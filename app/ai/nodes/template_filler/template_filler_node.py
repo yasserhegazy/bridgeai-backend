@@ -6,6 +6,7 @@ Maps clarified requirements to a structured CRS template.
 from typing import Dict, Any
 from app.ai.state import AgentState
 from app.ai.nodes.template_filler.llm_template_filler import LLMTemplateFiller
+from app.services.crs_service import persist_crs_document
 
 
 def template_filler_node(state: AgentState) -> Dict[str, Any]:
@@ -31,6 +32,9 @@ def template_filler_node(state: AgentState) -> Dict[str, Any]:
     user_input = state.get("user_input", "")
     conversation_history = state.get("conversation_history", [])
     extracted_fields = state.get("extracted_fields", {})
+    db = state.get("db")
+    project_id = state.get("project_id")
+    user_id = state.get("user_id")
 
     # Initialize the template filler
     filler = LLMTemplateFiller()
@@ -50,6 +54,17 @@ def template_filler_node(state: AgentState) -> Dict[str, Any]:
         for point in result["summary_points"]:
             response += f"• {point}\n"
         response += f"\n{result['overall_summary']}"
+
+        persisted = None
+        # Persist CRS only when we have a database session, project, and user context
+        if db and project_id and user_id:
+            persisted = persist_crs_document(
+                db=db,
+                project_id=project_id,
+                created_by=user_id,
+                content=result["crs_content"],
+                summary_points=result["summary_points"],
+            )
         
         return {
             "crs_content": result["crs_content"],
@@ -58,7 +73,9 @@ def template_filler_node(state: AgentState) -> Dict[str, Any]:
             "extracted_fields": result["crs_template"],
             "output": response,
             "last_node": "template_filler",
-            "crs_is_complete": result["is_complete"]
+            "crs_is_complete": result["is_complete"],
+            "crs_document_id": persisted.id if persisted else None,
+            "crs_version": persisted.version if persisted else None,
         }
 
     # If not complete, update state silently (preserve previous output)
