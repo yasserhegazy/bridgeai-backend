@@ -416,7 +416,8 @@ async def websocket_endpoint(
                             "extracted_fields": {},
                             "project_id": project_id,
                             "db": db,
-                            "message_id": new_message.id  # Pass message ID for memory linking
+                            "message_id": new_message.id,  # Pass message ID for memory linking
+                            "user_id": user.id,
                         }
                         
                         # Invoke graph (using ainvoke if available, otherwise synchronous invoke)
@@ -437,7 +438,8 @@ async def websocket_endpoint(
                         db.commit()
                         db.refresh(ai_message)
                         
-                        # Broadcast AI response
+                        # Broadcast AI response with optional CRS metadata
+                        # CRS metadata is included when the template filler generates a complete CRS
                         ai_response_payload = {
                             "id": ai_message.id,
                             "session_id": ai_message.session_id,
@@ -446,6 +448,15 @@ async def websocket_endpoint(
                             "content": ai_message.content,
                             "timestamp": ai_message.timestamp.isoformat()
                         }
+
+                        # Include CRS metadata if a complete CRS was generated
+                        if result.get("crs_is_complete"):
+                            ai_response_payload["crs"] = {
+                                "crs_document_id": result.get("crs_document_id"),
+                                "version": result.get("crs_version"),
+                                "is_complete": True,
+                                "summary_points": result.get("summary_points", []),
+                            }
                         
                         await manager.broadcast_to_session(ai_response_payload, chat_id)
                         print(f"[WebSocket] AI response sent: {ai_output}")
