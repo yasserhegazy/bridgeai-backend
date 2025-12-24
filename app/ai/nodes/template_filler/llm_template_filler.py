@@ -97,7 +97,15 @@ class LLMTemplateFiller:
     EXTRACTION_PROMPT = """
 You are an expert Business Analyst specializing in requirements documentation.
 
-Your task is to analyze the conversation and requirements provided, then extract and organize the information into a structured Customer Requirements Specification (CRS) template.
+Your task is to ANALYZE and SYNTHESIZE the conversation into a well-structured Customer Requirements Specification (CRS) document.
+
+CRITICAL INSTRUCTIONS:
+1. DO NOT copy raw conversation text into the output
+2. DO NOT include chat messages or dialogue in any field
+3. SYNTHESIZE information from multiple messages into concise, professional statements
+4. Each requirement should be a clear, specific, actionable item
+5. project_description should be a 2-4 sentence summary, NOT the entire conversation
+6. functional_requirements should be structured items with clear titles and descriptions
 
 USER'S LATEST INPUT:
 {user_input}
@@ -108,47 +116,61 @@ CONVERSATION HISTORY:
 PREVIOUSLY EXTRACTED FIELDS:
 {extracted_fields}
 
-Based on the above information, extract and structure the requirements into a CRS template.
+IMPORTANT FORMATTING RULES:
+- project_title: Short name (3-6 words max)
+- project_description: Concise paragraph (50-150 words) summarizing the project purpose
+- project_objectives: List of 3-7 clear goals (one sentence each)
+- functional_requirements: Each item MUST have id, title, description, and priority
+  - id: Format "FR-001", "FR-002", etc.
+  - title: Short descriptive name (3-8 words)
+  - description: One clear sentence explaining the requirement
+  - priority: "high", "medium", or "low"
+- All list items should be concise (one sentence each)
+- DO NOT dump entire messages into fields
 
-IMPORTANT: Return ONLY a valid JSON object without any markdown formatting or code blocks.
-
-Your response must be a pure JSON object with this exact structure:
+Return ONLY a valid JSON object (no markdown, no code blocks):
 {{
-    "project_title": "Name of the project",
-    "project_description": "Comprehensive description of what the project aims to achieve",
-    "project_objectives": ["Objective 1", "Objective 2"],
+    "project_title": "Short Project Name",
+    "project_description": "A concise 2-4 sentence description summarizing what the project aims to achieve and its main purpose.",
+    "project_objectives": ["Clear objective 1", "Clear objective 2"],
     "target_users": ["User type 1", "User type 2"],
     "stakeholders": ["Stakeholder 1", "Stakeholder 2"],
     "functional_requirements": [
         {{
             "id": "FR-001",
-            "title": "Requirement title",
-            "description": "Detailed description",
-            "priority": "high/medium/low"
+            "title": "Short Requirement Title",
+            "description": "Clear one-sentence description of what this requirement entails.",
+            "priority": "high"
+        }},
+        {{
+            "id": "FR-002",
+            "title": "Another Requirement",
+            "description": "Description of the second requirement.",
+            "priority": "medium"
         }}
     ],
-    "performance_requirements": ["Performance req 1", "Performance req 2"],
-    "security_requirements": ["Security req 1", "Security req 2"],
-    "scalability_requirements": ["Scalability req 1"],
+    "performance_requirements": ["Concise performance requirement"],
+    "security_requirements": ["Concise security requirement"],
+    "scalability_requirements": ["Concise scalability requirement"],
     "technology_stack": {{
-        "frontend": ["React", "TypeScript"],
-        "backend": ["Python", "FastAPI"],
-        "database": ["PostgreSQL"],
+        "frontend": ["Technology"],
+        "backend": ["Technology"],
+        "database": ["Database"],
         "other": []
     }},
-    "integrations": ["Integration 1", "Integration 2"],
+    "integrations": ["Integration 1"],
     "budget_constraints": "Budget information or 'Not specified'",
     "timeline_constraints": "Timeline information or 'Not specified'",
-    "technical_constraints": ["Constraint 1", "Constraint 2"],
-    "success_metrics": ["Metric 1", "Metric 2"],
-    "acceptance_criteria": ["Criteria 1", "Criteria 2"],
-    "assumptions": ["Assumption 1", "Assumption 2"],
-    "risks": ["Risk 1", "Risk 2"],
-    "out_of_scope": ["Out of scope item 1"]
+    "technical_constraints": ["Concise constraint"],
+    "success_metrics": ["Clear metric"],
+    "acceptance_criteria": ["Clear criteria"],
+    "assumptions": ["Clear assumption"],
+    "risks": ["Identified risk"],
+    "out_of_scope": ["What is excluded"]
 }}
 
 If information for a field is not available, use empty strings for text fields and empty arrays for list fields.
-Extract as much relevant information as possible from the conversation.
+REMEMBER: Synthesize and summarize - do not copy raw conversation text!
 
 Return pure JSON now:
 """

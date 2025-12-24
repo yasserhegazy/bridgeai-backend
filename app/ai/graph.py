@@ -7,6 +7,8 @@ from app.ai.state import AgentState
 from app.ai.nodes.clarification import clarification_node, should_request_clarification
 from app.ai.nodes.memory_node import memory_node
 from app.ai.nodes.template_filler import template_filler_node
+from app.ai.nodes.suggestions import suggestions_node
+from app.ai.nodes.suggestions.suggestions_node import should_generate_suggestions
 from app.ai.nodes.echo_node import echo_node
 
 
@@ -32,6 +34,7 @@ def create_graph():
     graph.add_node("clarification", clarification_node)
     graph.add_node("memory", memory_node)
     graph.add_node("template_filler", template_filler_node)
+    graph.add_node("suggestions", suggestions_node)
     graph.add_node("echo", echo_node)  # placeholder for future agent(s)
 
     # ----------------------------
@@ -57,9 +60,21 @@ def create_graph():
     graph.add_edge("template_filler", "memory")
 
     # ----------------------------
-    # MEMORY → END
+    # MEMORY → SUGGESTIONS (conditional)
     # ----------------------------
-    graph.add_edge("memory", END)
+    graph.add_conditional_edges(
+        "memory",
+        should_generate_suggestions,
+        {
+            True: "suggestions",  # Generate creative suggestions
+            False: END            # Skip suggestions and end
+        }
+    )
+
+    # ----------------------------
+    # SUGGESTIONS → END
+    # ----------------------------
+    graph.add_edge("suggestions", END)
 
     # ----------------------------
     # COMPILE GRAPH

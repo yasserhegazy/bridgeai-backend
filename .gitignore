@@ -23,3 +23,6 @@ Thumbs.db
 
 # Logs
 *.log
+
+# ChromaDB local database
+chroma_db/
