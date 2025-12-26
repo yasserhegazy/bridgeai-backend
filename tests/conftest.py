@@ -165,3 +165,122 @@ def another_client_auth_headers(client: TestClient, test_another_client_user: Us
     assert response.status_code == 200
     token = response.json()["access_token"]
     return {"Authorization": f"Bearer {token}"}
+
+
+# ============================================================================
+# Comment Testing Fixtures
+# ============================================================================
+
+@pytest.fixture
+def ba_user(db: Session) -> User:
+    """Create a BA user for comment testing."""
+    from app.utils.hash import hash_password
+    user = User(
+        full_name="BA User",
+        email="ba_comment@test.com",
+        password_hash=hash_password("TestPassword123!"),
+        role=UserRole.ba
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@pytest.fixture
+def client_user(db: Session) -> User:
+    """Create a client user for comment testing."""
+    from app.utils.hash import hash_password
+    user = User(
+        full_name="Client User",
+        email="client_comment@test.com",
+        password_hash=hash_password("TestPassword123!"),
+        role=UserRole.client
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@pytest.fixture
+def ba_token(client: TestClient, ba_user: User) -> str:
+    """Get authentication token for BA user."""
+    response = client.post(
+        "/auth/token",
+        data={"username": ba_user.email, "password": "TestPassword123!"},
+        headers={"Content-Type": "application/x-www-form-urlencoded"}
+    )
+    assert response.status_code == 200
+    return response.json()["access_token"]
+
+
+@pytest.fixture
+def client_token(client: TestClient, client_user: User) -> str:
+    """Get authentication token for client user."""
+    response = client.post(
+        "/auth/token",
+        data={"username": client_user.email, "password": "TestPassword123!"},
+        headers={"Content-Type": "application/x-www-form-urlencoded"}
+    )
+    assert response.status_code == 200
+    return response.json()["access_token"]
+
+
+@pytest.fixture
+def sample_team(db: Session, client_user: User):
+    """Create a sample team for testing."""
+    from app.models.team import Team, TeamMember
+    team = Team(
+        name="Test Team",
+        created_by=client_user.id
+    )
+    db.add(team)
+    db.commit()
+    db.refresh(team)
+    
+    # Add client user as team member
+    member = TeamMember(
+        team_id=team.id,
+        user_id=client_user.id
+    )
+    db.add(member)
+    db.commit()
+    
+    return team
+
+
+@pytest.fixture
+def sample_project(db: Session, client_user: User, sample_team):
+    """Create a sample project for testing."""
+    from app.models.project import Project, ProjectStatus
+    project = Project(
+        name="Test Project",
+        description="Test project for comments",
+        team_id=sample_team.id,
+        created_by=client_user.id,
+        status=ProjectStatus.active.value
+    )
+    db.add(project)
+    db.commit()
+    db.refresh(project)
+    return project
+
+
+@pytest.fixture
+def sample_crs(db: Session, sample_project, client_user: User):
+    """Create a sample CRS document for testing."""
+    from app.models.crs import CRSDocument, CRSStatus
+    crs = CRSDocument(
+        project_id=sample_project.id,
+        created_by=client_user.id,
+        content="Sample CRS content for testing comments",
+        summary_points="[]",
+        status=CRSStatus.under_review,
+        version=1
+    )
+    db.add(crs)
+    db.commit()
+    db.refresh(crs)
+    return crs
+
