@@ -27,7 +27,7 @@ class Notification(Base):
     title = Column(String(255), nullable=False)
     message = Column(String(500), nullable=False)
     is_read = Column(Boolean, default=False, nullable=False)
-    metadata = Column(JSON, nullable=True)
+    meta_data = Column(JSON, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
     # Relationships

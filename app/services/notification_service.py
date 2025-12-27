@@ -18,7 +18,7 @@ def create_notification(
     reference_id: int,
     title: str,
     message: str,
-    metadata: Optional[dict] = None
+    meta_data: Optional[dict] = None
 ) -> Notification:
     """Create an in-app notification."""
     notification = Notification(
@@ -27,7 +27,7 @@ def create_notification(
         reference_id=reference_id,
         title=title,
         message=message,
-        metadata=metadata or {}
+        meta_data=meta_data or {}
     )
     db.add(notification)
     db.commit()
@@ -111,7 +111,7 @@ def notify_crs_created(
             reference_id=crs.id,
             title="New CRS Document Created",
             message=f"A new CRS document has been created for project '{project.name}'",
-            metadata={"project_id": project.id, "project_name": project.name, "crs_id": crs.id}
+            meta_data={"project_id": project.id, "project_name": project.name, "crs_id": crs.id}
         )
         
         if send_email_notification:
@@ -145,7 +145,7 @@ def notify_crs_updated(
             reference_id=crs.id,
             title="CRS Document Updated",
             message=f"CRS document for project '{project.name}' has been updated",
-            metadata={"project_id": project.id, "project_name": project.name, "crs_id": crs.id}
+            meta_data={"project_id": project.id, "project_name": project.name, "crs_id": crs.id}
         )
         
         if send_email_notification:
@@ -181,7 +181,7 @@ def notify_crs_status_changed(
             reference_id=crs.id,
             title="CRS Status Changed",
             message=f"CRS status changed from '{old_status}' to '{new_status}' for project '{project.name}'",
-            metadata={"project_id": project.id, "project_name": project.name, "crs_id": crs.id, "status": new_status}
+            meta_data={"project_id": project.id, "project_name": project.name, "crs_id": crs.id, "status": new_status}
         )
         
         if send_email_notification:
@@ -219,7 +219,7 @@ def notify_crs_comment_added(
             reference_id=crs.id,
             title="New Comment on CRS",
             message=f"{comment_author.username} added a comment on CRS for project '{project.name}'",
-            metadata={"project_id": project.id, "project_name": project.name, "crs_id": crs.id}
+            meta_data={"project_id": project.id, "project_name": project.name, "crs_id": crs.id}
         )
         
         if send_email_notification:
@@ -254,7 +254,7 @@ def notify_crs_approved(
             reference_id=crs.id,
             title="CRS Document Approved",
             message=f"CRS for project '{project.name}' has been approved by {approver.username}",
-            metadata={"project_id": project.id, "project_name": project.name, "crs_id": crs.id, "status": "approved"}
+            meta_data={"project_id": project.id, "project_name": project.name, "crs_id": crs.id, "status": "approved"}
         )
         
         if send_email_notification:
@@ -289,7 +289,7 @@ def notify_crs_rejected(
             reference_id=crs.id,
             title="CRS Document Rejected",
             message=f"CRS for project '{project.name}' has been rejected by {rejector.username}",
-            metadata={"project_id": project.id, "project_name": project.name, "crs_id": crs.id, "status": "rejected"}
+            meta_data={"project_id": project.id, "project_name": project.name, "crs_id": crs.id, "status": "rejected"}
         )
         
         if send_email_notification:
@@ -322,7 +322,7 @@ def notify_crs_review_assignment(
         reference_id=crs.id,
         title="CRS Review Assignment",
         message=f"You have been assigned to review CRS for project '{project.name}'",
-        metadata={"project_id": project.id, "project_name": project.name, "crs_id": crs.id}
+        meta_data={"project_id": project.id, "project_name": project.name, "crs_id": crs.id}
     )
     
     if send_email_notification:

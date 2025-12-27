@@ -11,7 +11,7 @@ from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
 revision = 'b3c4d5e6f7g8'
-down_revision = '3536218ab710'
+down_revision = '16041c546c69'
 branch_labels = None
 depends_on = None
 
@@ -23,13 +23,13 @@ def upgrade():
                     type_=sa.String(50),
                     existing_nullable=False)
     
-    # Add metadata column
-    op.add_column('notifications', sa.Column('metadata', sa.JSON(), nullable=True))
+    # Add meta_data column
+    op.add_column('notifications', sa.Column('meta_data', sa.JSON(), nullable=True))
 
 
 def downgrade():
-    # Remove metadata column
-    op.drop_column('notifications', 'metadata')
+    # Remove meta_data column
+    op.drop_column('notifications', 'meta_data')
     
     # Revert type column back to enum
     op.alter_column('notifications', 'type',
