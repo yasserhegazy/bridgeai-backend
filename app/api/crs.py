@@ -148,12 +148,20 @@ def list_crs_for_review(
         db.query(CRSDocument)
         .join(Project, CRSDocument.project_id == Project.id)
         .filter(Project.team_id.in_(team_ids))
+        # Exclude draft documents - BAs should only see submitted CRS
+        .filter(CRSDocument.status != CRSStatus.draft)
     )
     
     # Apply status filter if provided
     if status:
         try:
             status_enum = CRSStatus(status)
+            # Prevent filtering by draft status
+            if status_enum == CRSStatus.draft:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Business Analysts cannot access draft CRS documents"
+                )
             query = query.filter(CRSDocument.status == status_enum)
         except ValueError:
             raise HTTPException(
