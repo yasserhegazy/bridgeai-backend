@@ -13,7 +13,7 @@ from app.core.security import get_current_user
 from app.db.session import get_db
 from app.models.crs import CRSDocument, CRSStatus
 from app.models.user import User
-from app.services.crs_service import get_latest_crs, persist_crs_document, get_crs_versions, update_crs_status
+from app.services.crs_service import get_latest_crs, persist_crs_document, get_crs_versions, update_crs_status, get_crs_by_id
 from app.schemas.export import ExportFormat
 from app.services.export_service import (
     crs_to_professional_html,
@@ -149,6 +149,43 @@ def read_crs_versions(
             created_at=crs.created_at,
         ))
     return result
+
+
+@router.get("/{crs_id}", response_model=CRSOut)
+def read_crs(
+    crs_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Fetch a specific CRS document version by its unique ID.
+    """
+    crs = get_crs_by_id(db, crs_id=crs_id)
+    if not crs:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="CRS document not found"
+        )
+    
+    project = get_project_or_404(db, crs.project_id)
+    verify_team_membership(db, project.team_id, current_user.id)
+
+    try:
+        summary_points = json.loads(crs.summary_points) if crs.summary_points else []
+    except Exception:
+        summary_points = []
+    
+    return CRSOut(
+        id=crs.id,
+        project_id=crs.project_id,
+        status=crs.status.value,
+        version=crs.version,
+        content=crs.content,
+        summary_points=summary_points,
+        created_by=crs.created_by,
+        approved_by=crs.approved_by,
+        created_at=crs.created_at,
+    )
 
 
 @router.put("/{crs_id}/status", response_model=CRSOut)
