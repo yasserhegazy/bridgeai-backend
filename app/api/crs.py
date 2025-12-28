@@ -15,6 +15,13 @@ from app.models.crs import CRSDocument, CRSStatus
 from app.models.user import User, UserRole
 from app.models.project import Project
 from app.services.crs_service import get_latest_crs, persist_crs_document, get_crs_versions, update_crs_status
+from app.services.notification_service import (
+    notify_crs_created,
+    notify_crs_status_changed,
+    notify_crs_approved,
+    notify_crs_rejected
+)
+from app.models.project import Project
 from app.schemas.export import ExportFormat
 from app.services.export_service import (
     crs_to_professional_html,
@@ -74,6 +81,13 @@ def create_crs(
         content=payload.content,
         summary_points=payload.summary_points,
     )
+
+    # Notify team members
+    from app.models.team import TeamMember
+    team_members = db.query(TeamMember).filter(TeamMember.team_id == project.team_id).all()
+    notify_users = [tm.user_id for tm in team_members if tm.user_id != current_user.id]
+    
+    notify_crs_created(db, crs, project, notify_users, send_email_notification=True)
 
     return CRSOut(
         id=crs.id,
@@ -239,6 +253,43 @@ def read_crs_versions(
     return result
 
 
+@router.get("/{crs_id}", response_model=CRSOut)
+def read_crs(
+    crs_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Fetch a specific CRS document version by its unique ID.
+    """
+    crs = get_crs_by_id(db, crs_id=crs_id)
+    if not crs:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="CRS document not found"
+        )
+    
+    project = get_project_or_404(db, crs.project_id)
+    verify_team_membership(db, project.team_id, current_user.id)
+
+    try:
+        summary_points = json.loads(crs.summary_points) if crs.summary_points else []
+    except Exception:
+        summary_points = []
+    
+    return CRSOut(
+        id=crs.id,
+        project_id=crs.project_id,
+        status=crs.status.value,
+        version=crs.version,
+        content=crs.content,
+        summary_points=summary_points,
+        created_by=crs.created_by,
+        approved_by=crs.approved_by,
+        created_at=crs.created_at,
+    )
+
+
 @router.put("/{crs_id}/status", response_model=CRSOut)
 def update_crs_status_endpoint(
     crs_id: int,
@@ -281,6 +332,9 @@ def update_crs_status_endpoint(
     project = get_project_or_404(db, crs.project_id)
     verify_team_membership(db, project.team_id, current_user.id)
 
+    # Store old status for notification
+    old_status = crs.status.value
+
     # Update status using service function
     updated_crs = update_crs_status(
         db,
@@ -289,6 +343,18 @@ def update_crs_status_endpoint(
         approved_by=current_user.id if new_status == CRSStatus.approved else None,
         rejection_reason=payload.rejection_reason if new_status == CRSStatus.rejected else None,
     )
+
+    # Notify team members
+    from app.models.team import TeamMember
+    team_members = db.query(TeamMember).filter(TeamMember.team_id == project.team_id).all()
+    notify_users = [tm.user_id for tm in team_members if tm.user_id != current_user.id]
+    
+    if new_status == CRSStatus.approved:
+        notify_crs_approved(db, updated_crs, project, current_user, notify_users, send_email_notification=True)
+    elif new_status == CRSStatus.rejected:
+        notify_crs_rejected(db, updated_crs, project, current_user, notify_users, send_email_notification=True)
+    else:
+        notify_crs_status_changed(db, updated_crs, project, old_status, new_status.value, notify_users, send_email_notification=True)
 
     try:
         summary_points = json.loads(updated_crs.summary_points) if updated_crs.summary_points else []

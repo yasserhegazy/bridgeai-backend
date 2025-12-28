@@ -130,3 +130,10 @@ def update_crs_status(
     db.commit()
     db.refresh(crs)
     return crs
+
+
+def get_crs_by_id(db: Session, *, crs_id: int) -> Optional[CRSDocument]:
+    """
+    Fetch a CRS document by its ID.
+    """
+    return db.query(CRSDocument).filter(CRSDocument.id == crs_id).first()

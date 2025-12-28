@@ -19,13 +19,13 @@ def enrich_notification(notification: Notification, db: Session) -> dict:
     notification_dict = {
         "id": notification.id,
         "user_id": notification.user_id,
-        "type": notification.type,
+        "type": notification.type.lower() if isinstance(notification.type, str) else notification.type.value.lower(),
         "reference_id": notification.reference_id,
         "title": notification.title,
         "message": notification.message,
         "is_read": notification.is_read,
         "created_at": notification.created_at,
-        "metadata": None
+        "metadata": notification.meta_data or None
     }
     
     if notification.type == NotificationType.PROJECT_APPROVAL:
@@ -71,6 +71,8 @@ def enrich_notification(notification: Notification, db: Session) -> dict:
                     "team_name": team.name,
                     "action_type": "invitation_accepted"
                 }
+    
+    # CRS notifications already have metadata stored, just return it
     
     return notification_dict
 
