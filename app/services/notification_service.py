@@ -218,7 +218,7 @@ def notify_crs_comment_added(
             notification_type="crs_comment_added",
             reference_id=crs.id,
             title="New Comment on CRS",
-            message=f"{comment_author.username} added a comment on CRS for project '{project.name}'",
+            message=f"{comment_author.full_name} added a comment on CRS for project '{project.name}'",
             meta_data={"project_id": project.id, "project_name": project.name, "crs_id": crs.id}
         )
         
@@ -229,7 +229,7 @@ def notify_crs_comment_added(
                 event_type="New Comment Added",
                 crs_id=crs.id,
                 project_name=project.name,
-                details=f"{comment_author.username} added a comment to the CRS document."
+                details=f"{comment_author.full_name} added a comment to the CRS document."
             )
 
 
@@ -253,7 +253,7 @@ def notify_crs_approved(
             notification_type="crs_approved",
             reference_id=crs.id,
             title="CRS Document Approved",
-            message=f"CRS for project '{project.name}' has been approved by {approver.username}",
+            message=f"CRS for project '{project.name}' has been approved by {approver.full_name}",
             meta_data={"project_id": project.id, "project_name": project.name, "crs_id": crs.id, "status": "approved"}
         )
         
@@ -264,7 +264,7 @@ def notify_crs_approved(
                 event_type="CRS Document Approved",
                 crs_id=crs.id,
                 project_name=project.name,
-                details=f"Your CRS document has been approved by {approver.username}."
+                details=f"Your CRS document has been approved by {approver.full_name}."
             )
 
 
@@ -288,7 +288,7 @@ def notify_crs_rejected(
             notification_type="crs_rejected",
             reference_id=crs.id,
             title="CRS Document Rejected",
-            message=f"CRS for project '{project.name}' has been rejected by {rejector.username}",
+            message=f"CRS for project '{project.name}' has been rejected by {rejector.full_name}",
             meta_data={"project_id": project.id, "project_name": project.name, "crs_id": crs.id, "status": "rejected"}
         )
         
@@ -299,7 +299,7 @@ def notify_crs_rejected(
                 event_type="CRS Document Rejected",
                 crs_id=crs.id,
                 project_name=project.name,
-                details=f"Your CRS document has been rejected by {rejector.username}. Please review the feedback."
+                details=f"Your CRS document has been rejected by {rejector.full_name}. Please review the feedback."
             )
 
 
