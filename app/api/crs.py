@@ -265,6 +265,87 @@ def list_crs_for_review(
     return result
 
 
+@router.get("/my-requests", response_model=List[CRSOut])
+def list_my_crs_requests(
+    team_id: Optional[int] = Query(None, description="Filter by team"),
+    project_id: Optional[int] = Query(None, description="Filter by specific project"),
+    status: Optional[str] = Query(None, description="Filter by CRS status"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    List all CRS documents created by the current user (client view).
+    
+    This endpoint allows clients to track the progress of their submitted CRS.
+    Excludes draft documents - only shows submitted requests (under_review, approved, rejected).
+    """
+    # Build query to get CRS documents created by current user
+    query = (
+        db.query(CRSDocument)
+        .join(Project, CRSDocument.project_id == Project.id)
+        .filter(CRSDocument.created_by == current_user.id)
+        # Exclude draft documents - clients should only see submitted CRS
+        .filter(CRSDocument.status != CRSStatus.draft)
+    )
+    
+    # Apply team filter if provided
+    if team_id:
+        # Verify user is member of this team
+        verify_team_membership(db, team_id, current_user.id)
+        query = query.filter(Project.team_id == team_id)
+    
+    # Apply project filter if provided
+    if project_id:
+        # Verify user has access to this project
+        project = get_project_or_404(db, project_id)
+        verify_team_membership(db, project.team_id, current_user.id)
+        query = query.filter(CRSDocument.project_id == project_id)
+    
+    # Apply status filter if provided
+    if status:
+        try:
+            status_enum = CRSStatus(status)
+            # Prevent filtering by draft status
+            if status_enum == CRSStatus.draft:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Draft CRS documents are not shown in request tracking"
+                )
+            query = query.filter(CRSDocument.status == status_enum)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid status. Must be one of: {[s.value for s in CRSStatus]}"
+            )
+    
+    # Order by most recent first
+    crs_documents = query.order_by(CRSDocument.created_at.desc()).all()
+    
+    # Convert to response format
+    result = []
+    for crs in crs_documents:
+        try:
+            summary_points = json.loads(crs.summary_points) if crs.summary_points else []
+        except Exception:
+            summary_points = []
+        
+        result.append(CRSOut(
+            id=crs.id,
+            project_id=crs.project_id,
+            status=crs.status.value,
+            version=crs.version,
+            content=crs.content,
+            summary_points=summary_points,
+            created_by=crs.created_by,
+            approved_by=crs.approved_by,
+            rejection_reason=crs.rejection_reason,
+            reviewed_at=crs.reviewed_at,
+            created_at=crs.created_at,
+        ))
+    
+    return result
+
+
 @router.get("/versions", response_model=List[CRSOut])
 def read_crs_versions(
     project_id: int,
