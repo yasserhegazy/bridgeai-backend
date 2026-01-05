@@ -4,6 +4,7 @@ Pytest configuration and fixtures for testing the BridgeAI backend application.
 import sys
 import os
 from typing import Generator, Dict
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -13,6 +14,18 @@ from sqlalchemy.pool import StaticPool
 
 # Add the parent directory to the path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+# Mock the rate limiter BEFORE importing the app
+mock_limiter = MagicMock()
+mock_limiter.limit = lambda *args, **kwargs: lambda f: f
+
+# Patch the limiter in the rate_limit module
+import app.core.rate_limit
+app.core.rate_limit.limiter = mock_limiter
+
+# Mock email sending globally for all tests
+email_patcher = patch('app.utils.email.send_email', return_value=None)
+email_patcher.start()
 
 from app.main import app
 from app.db.session import Base, get_db
@@ -58,16 +71,9 @@ def client(db: Session) -> Generator[TestClient, None, None]:
     
     app.dependency_overrides[get_db] = override_get_db
     
-    # Reset rate limiter for each test to avoid rate limit issues in tests
-    if hasattr(app.state, 'limiter'):
-        try:
-            # Clear the rate limiter storage
-            app.state.limiter.reset()
-        except:
-            pass
-    
     with TestClient(app) as test_client:
         yield test_client
+    
     app.dependency_overrides.clear()
 
 
@@ -284,3 +290,48 @@ def sample_crs(db: Session, sample_project, client_user: User):
     db.refresh(crs)
     return crs
 
+
+
+@pytest.fixture(scope="function")
+def rate_limit_client(db: Session) -> Generator[TestClient, None, None]:
+    """
+    Create a test client with rate limiting enabled for rate limit tests.
+    """
+    def override_get_db():
+        try:
+            yield db
+        finally:
+            pass
+    
+    app.dependency_overrides[get_db] = override_get_db
+    
+    with TestClient(app) as test_client:
+        yield test_client
+    
+    app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def rate_limit_ba_auth_headers(rate_limit_client: TestClient, test_ba_user: User) -> Dict[str, str]:
+    """Get authentication headers for BA user with rate limiting enabled."""
+    response = rate_limit_client.post(
+        "/auth/token",
+        data={"username": test_ba_user.email, "password": "TestPassword123!"},
+        headers={"Content-Type": "application/x-www-form-urlencoded"}
+    )
+    assert response.status_code == 200
+    token = response.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
+
+
+@pytest.fixture
+def rate_limit_client_auth_headers(rate_limit_client: TestClient, test_client_user: User) -> Dict[str, str]:
+    """Get authentication headers for Client user with rate limiting enabled."""
+    response = rate_limit_client.post(
+        "/auth/token",
+        data={"username": test_client_user.email, "password": "TestPassword123!"},
+        headers={"Content-Type": "application/x-www-form-urlencoded"}
+    )
+    assert response.status_code == 200
+    token = response.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}

@@ -62,8 +62,8 @@ class TestSuggestionsGenerator:
     def test_generate_creative_suggestions(self, mock_client):
         """Test creative suggestions generation"""
         # Mock OpenAI response
-        mock_response = Mock()
-        mock_response.choices[0].message.content = '''
+        mock_message = Mock()
+        mock_message.content = '''
         [
           {
             "category": "ADDITIONAL_FEATURES",
@@ -75,6 +75,10 @@ class TestSuggestionsGenerator:
           }
         ]
         '''
+        mock_choice = Mock()
+        mock_choice.message = mock_message
+        mock_response = Mock()
+        mock_response.choices = [mock_choice]
         mock_client.chat.completions.create.return_value = mock_response
         
         project_context = {
