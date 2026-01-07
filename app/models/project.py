@@ -19,10 +19,10 @@ class Project(Base):
     __tablename__ = "projects"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String(256), nullable=False)
+    name = Column(String(256), nullable=False)  # No index - exact name search is rare
     description = Column(Text, nullable=True)
-    team_id = Column(Integer, ForeignKey("teams.id"), nullable=False)
-    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
+    team_id = Column(Integer, ForeignKey("teams.id"), nullable=False, index=True)  # CRITICAL: FK index for team filtering
+    created_by = Column(Integer, ForeignKey("users.id"), nullable=False)  # No index - creator lookups are rare
     
     # Approval workflow fields
     # For MySQL, we need to pass the enum values explicitly as strings

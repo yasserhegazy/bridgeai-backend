@@ -17,18 +17,19 @@ class Invitation(Base):
     __tablename__ = "invitations"
 
     id = Column(Integer, primary_key=True, index=True)
-    email = Column(String(256), nullable=False, index=True)
-    role = Column(String(50), nullable=False)  # TeamRole value as string
-    team_id = Column(Integer, ForeignKey("teams.id"), nullable=False)
-    invited_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    token = Column(String(64), nullable=False, unique=True, index=True)
+    email = Column(String(256), nullable=False, index=True)  # Index for email lookups (high selectivity)
+    role = Column(String(50), nullable=False)
+    team_id = Column(Integer, ForeignKey("teams.id"), nullable=False, index=True)  # CRITICAL: FK index
+    invited_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)  # No index - rarely query by inviter
+    token = Column(String(64), nullable=False, unique=True, index=True)  # Unique = automatic index (for token validation)
     status = Column(
         Enum('pending', 'accepted', 'expired', 'canceled', name='invitationstatus'),
         nullable=False,
-        server_default='pending'
+        server_default='pending',
+        index=True  # Index for filtering pending invitations (moderate selectivity)
     )
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    expires_at = Column(DateTime(timezone=True), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())  # No index - rarely filtered by date
+    expires_at = Column(DateTime(timezone=True), nullable=True)  # No index - cleanup can use status instead
 
     # Relationships
     team = relationship("Team")
