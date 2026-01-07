@@ -45,6 +45,8 @@ async def custom_rate_limit_handler(request: Request, exc: RateLimitExceeded):
 origins = [
     "http://localhost:3000",  # your frontend React app
     "http://localhost:3001",  # alternative frontend port
+    "http://127.0.0.1:3000",  # localhost IP variant
+    "http://127.0.0.1:3001",  # alternative port IP variant
 ]
 
 # ✅ Add security headers middleware
@@ -71,7 +73,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 
