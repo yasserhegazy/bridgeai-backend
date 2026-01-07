@@ -14,8 +14,8 @@ from app.schemas.notification import NotificationResponse, NotificationList, Not
 router = APIRouter()
 
 
-def enrich_notification(notification: Notification, db: Session) -> dict:
-    """Add metadata to notification based on type"""
+def enrich_notification(notification: Notification, db: Session, projects_map: dict = None, teams_map: dict = None, invitations_map: dict = None) -> dict:
+    """Add metadata to notification based on type - optimized with pre-loaded maps"""
     notification_dict = {
         "id": notification.id,
         "user_id": notification.user_id,
@@ -29,8 +29,10 @@ def enrich_notification(notification: Notification, db: Session) -> dict:
     }
     
     if notification.type == NotificationType.PROJECT_APPROVAL:
-        # Get project details
-        project = db.query(Project).filter(Project.id == notification.reference_id).first()
+        # Use pre-loaded project map to avoid query
+        project = projects_map.get(notification.reference_id) if projects_map else None
+        if not project:
+            project = db.query(Project).filter(Project.id == notification.reference_id).first()
         if project:
             notification_dict["metadata"] = {
                 "project_id": project.id,
@@ -40,14 +42,15 @@ def enrich_notification(notification: Notification, db: Session) -> dict:
             }
     
     elif notification.type == NotificationType.TEAM_INVITATION:
-        # Check if reference_id is team_id or invitation_id by checking the message
-        if "invited you" in notification.message.lower():
-            # This is an invitation received notification - reference_id is team_id
+        # Use pre-loaded maps to avoid queries
+        team = teams_map.get(notification.reference_id) if teams_map else None
+        if not team:
             team = db.query(Team).filter(Team.id == notification.reference_id).first()
-            # Try to find the pending invitation for this user and team
+        
+        invitation = invitations_map.get(notification.reference_id) if invitations_map else None
+        if not invitation and team:
             user = db.query(User).filter(User.id == notification.user_id).first()
-            invitation = None
-            if user and team:
+            if user:
                 invitation = db.query(Invitation).filter(
                     Invitation.team_id == team.id,
                     Invitation.email == user.email,
@@ -87,6 +90,7 @@ def get_notifications(
 ):
     """
     Get notifications for the current user with enriched metadata.
+    Optimized to prevent N+1 queries by batching related entity lookups.
     """
     query = db.query(Notification).filter(Notification.user_id == current_user.id)
     
@@ -100,11 +104,46 @@ def get_notifications(
         Notification.is_read == False
     ).count()
     
-    # Get paginated notifications
+    # Get notifications with limit/offset
     notifications = query.order_by(desc(Notification.created_at)).offset(skip).limit(limit).all()
     
-    # Enrich notifications with metadata
-    enriched_notifications = [enrich_notification(n, db) for n in notifications]
+    # OPTIMIZATION: Batch load all related entities to prevent N+1 queries
+    # Collect IDs by type
+    project_ids = set()
+    team_ids = set()
+    
+    for notif in notifications:
+        if notif.type == NotificationType.PROJECT_APPROVAL:
+            project_ids.add(notif.reference_id)
+        elif notif.type == NotificationType.TEAM_INVITATION:
+            team_ids.add(notif.reference_id)
+    
+    # Batch load all projects and teams in 2 queries instead of N queries
+    projects_map = {}
+    if project_ids:
+        projects = db.query(Project).filter(Project.id.in_(project_ids)).all()
+        projects_map = {p.id: p for p in projects}
+    
+    teams_map = {}
+    invitations_map = {}
+    if team_ids:
+        teams = db.query(Team).filter(Team.id.in_(team_ids)).all()
+        teams_map = {t.id: t for t in teams}
+        
+        # Batch load pending invitations for teams
+        invitations = db.query(Invitation).filter(
+            Invitation.team_id.in_(team_ids),
+            Invitation.email == current_user.email,
+            Invitation.status == 'pending'
+        ).all()
+        for inv in invitations:
+            invitations_map[inv.team_id] = inv
+    
+    # Enrich notifications with pre-loaded maps (prevents N+1 queries)
+    enriched_notifications = [
+        enrich_notification(n, db, projects_map, teams_map, invitations_map) 
+        for n in notifications
+    ]
     
     return NotificationList(
         notifications=enriched_notifications,
