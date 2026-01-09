@@ -4,6 +4,7 @@ from datetime import datetime
 import io
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from app.models.audit import CRSAuditLog
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -61,6 +62,22 @@ class CRSOut(BaseModel):
         orm_mode = True
 
 
+class AuditLogOut(BaseModel):
+    id: int
+    crs_id: int
+    changed_by: int
+    changed_at: datetime
+    action: str
+    old_status: Optional[str]
+    new_status: Optional[str]
+    old_content: Optional[str]
+    new_content: Optional[str]
+    summary: Optional[str]
+
+    class Config:
+        orm_mode = True
+
+
 @router.post("/", response_model=CRSOut, status_code=status.HTTP_201_CREATED)
 def create_crs(
     payload: CRSCreate,
@@ -92,6 +109,18 @@ def create_crs(
     notify_users = [uid[0] for uid in notify_user_ids]
     
     notify_crs_created(db, crs, project, notify_users, send_email_notification=True)
+
+    # Create audit log for creation
+    audit_entry = CRSAuditLog(
+        crs_id=crs.id,
+        changed_by=current_user.id,
+        action="created",
+        new_status=crs.status.value,
+        new_content=crs.content,
+        summary="CRS document created"
+    )
+    db.add(audit_entry)
+    db.commit()
 
     return CRSOut(
         id=crs.id,
@@ -489,6 +518,18 @@ def update_crs_status_endpoint(
     else:
         notify_crs_status_changed(db, updated_crs, project, old_status, new_status.value, notify_users, send_email_notification=True)
 
+    # Create audit log for status change
+    audit_entry = CRSAuditLog(
+        crs_id=crs_id,
+        changed_by=current_user.id,
+        action="status_updated",
+        old_status=old_status,
+        new_status=new_status.value,
+        summary=f"CRS status changed from {old_status} to {new_status.value}"
+    )
+    db.add(audit_entry)
+    db.commit()
+
     try:
         summary_points = json.loads(updated_crs.summary_points) if updated_crs.summary_points else []
     except Exception:
@@ -507,6 +548,40 @@ def update_crs_status_endpoint(
         reviewed_at=updated_crs.reviewed_at,
         created_at=updated_crs.created_at,
     )
+
+
+@router.get("/{crs_id}/audit", response_model=List[AuditLogOut])
+def get_crs_audit_logs(
+    crs_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return audit log entries for a CRS document."""
+    # Verify access to CRS
+    crs = get_crs_by_id(db, crs_id=crs_id)
+    if not crs:
+        raise HTTPException(status_code=404, detail="CRS document not found")
+    project = get_project_or_404(db, crs.project_id)
+    verify_team_membership(db, project.team_id, current_user.id)
+
+    logs = db.query(CRSAuditLog).filter(CRSAuditLog.crs_id == crs_id).order_by(CRSAuditLog.changed_at.desc()).all()
+    
+    return [
+        {
+            "id": log.id,
+            "crs_id": log.crs_id,
+            "changed_by": log.changed_by,
+            "changed_at": log.changed_at,
+            "action": log.action,
+            "old_status": log.old_status,
+            "new_status": log.new_status,
+            "old_content": log.old_content,
+            "new_content": log.new_content,
+            "summary": log.summary
+        }
+        for log in logs
+    ]
+
 
 @router.post("/{crs_id}/export")
 def export_crs(
