@@ -4,6 +4,7 @@ from datetime import datetime
 import io
 
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from app.models.audit import CRSAuditLog
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -61,6 +62,22 @@ class CRSOut(BaseModel):
         orm_mode = True
 
 
+class AuditLogOut(BaseModel):
+    id: int
+    crs_id: int
+    changed_by: int
+    changed_at: datetime
+    action: str
+    old_status: Optional[str]
+    new_status: Optional[str]
+    old_content: Optional[str]
+    new_content: Optional[str]
+    summary: Optional[str]
+
+    class Config:
+        orm_mode = True
+
+
 @router.post("/", response_model=CRSOut, status_code=status.HTTP_201_CREATED)
 def create_crs(
     payload: CRSCreate,
@@ -81,12 +98,29 @@ def create_crs(
         summary_points=payload.summary_points,
     )
 
-    # Notify team members
+    # Notify team members - optimized single query
     from app.models.team import TeamMember
-    team_members = db.query(TeamMember).filter(TeamMember.team_id == project.team_id).all()
-    notify_users = [tm.user_id for tm in team_members if tm.user_id != current_user.id]
+    # Single query to get all active team member IDs except current user
+    notify_user_ids = db.query(TeamMember.user_id).filter(
+        TeamMember.team_id == project.team_id,
+        TeamMember.is_active == True,
+        TeamMember.user_id != current_user.id
+    ).all()
+    notify_users = [uid[0] for uid in notify_user_ids]
     
     notify_crs_created(db, crs, project, notify_users, send_email_notification=True)
+
+    # Create audit log for creation
+    audit_entry = CRSAuditLog(
+        crs_id=crs.id,
+        changed_by=current_user.id,
+        action="created",
+        new_status=crs.status.value,
+        new_content=crs.content,
+        summary="CRS document created"
+    )
+    db.add(audit_entry)
+    db.commit()
 
     return CRSOut(
         id=crs.id,
@@ -265,6 +299,87 @@ def list_crs_for_review(
     return result
 
 
+@router.get("/my-requests", response_model=List[CRSOut])
+def list_my_crs_requests(
+    team_id: Optional[int] = Query(None, description="Filter by team"),
+    project_id: Optional[int] = Query(None, description="Filter by specific project"),
+    status: Optional[str] = Query(None, description="Filter by CRS status"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    List all CRS documents created by the current user (client view).
+    
+    This endpoint allows clients to track the progress of their submitted CRS.
+    Excludes draft documents - only shows submitted requests (under_review, approved, rejected).
+    """
+    # Build query to get CRS documents created by current user
+    query = (
+        db.query(CRSDocument)
+        .join(Project, CRSDocument.project_id == Project.id)
+        .filter(CRSDocument.created_by == current_user.id)
+        # Exclude draft documents - clients should only see submitted CRS
+        .filter(CRSDocument.status != CRSStatus.draft)
+    )
+    
+    # Apply team filter if provided
+    if team_id:
+        # Verify user is member of this team
+        verify_team_membership(db, team_id, current_user.id)
+        query = query.filter(Project.team_id == team_id)
+    
+    # Apply project filter if provided
+    if project_id:
+        # Verify user has access to this project
+        project = get_project_or_404(db, project_id)
+        verify_team_membership(db, project.team_id, current_user.id)
+        query = query.filter(CRSDocument.project_id == project_id)
+    
+    # Apply status filter if provided
+    if status:
+        try:
+            status_enum = CRSStatus(status)
+            # Prevent filtering by draft status
+            if status_enum == CRSStatus.draft:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Draft CRS documents are not shown in request tracking"
+                )
+            query = query.filter(CRSDocument.status == status_enum)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid status. Must be one of: {[s.value for s in CRSStatus]}"
+            )
+    
+    # Order by most recent first
+    crs_documents = query.order_by(CRSDocument.created_at.desc()).all()
+    
+    # Convert to response format
+    result = []
+    for crs in crs_documents:
+        try:
+            summary_points = json.loads(crs.summary_points) if crs.summary_points else []
+        except Exception:
+            summary_points = []
+        
+        result.append(CRSOut(
+            id=crs.id,
+            project_id=crs.project_id,
+            status=crs.status.value,
+            version=crs.version,
+            content=crs.content,
+            summary_points=summary_points,
+            created_by=crs.created_by,
+            approved_by=crs.approved_by,
+            rejection_reason=crs.rejection_reason,
+            reviewed_at=crs.reviewed_at,
+            created_at=crs.created_at,
+        ))
+    
+    return result
+
+
 @router.get("/versions", response_model=List[CRSOut])
 def read_crs_versions(
     project_id: int,
@@ -403,6 +518,18 @@ def update_crs_status_endpoint(
     else:
         notify_crs_status_changed(db, updated_crs, project, old_status, new_status.value, notify_users, send_email_notification=True)
 
+    # Create audit log for status change
+    audit_entry = CRSAuditLog(
+        crs_id=crs_id,
+        changed_by=current_user.id,
+        action="status_updated",
+        old_status=old_status,
+        new_status=new_status.value,
+        summary=f"CRS status changed from {old_status} to {new_status.value}"
+    )
+    db.add(audit_entry)
+    db.commit()
+
     try:
         summary_points = json.loads(updated_crs.summary_points) if updated_crs.summary_points else []
     except Exception:
@@ -421,6 +548,40 @@ def update_crs_status_endpoint(
         reviewed_at=updated_crs.reviewed_at,
         created_at=updated_crs.created_at,
     )
+
+
+@router.get("/{crs_id}/audit", response_model=List[AuditLogOut])
+def get_crs_audit_logs(
+    crs_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Return audit log entries for a CRS document."""
+    # Verify access to CRS
+    crs = get_crs_by_id(db, crs_id=crs_id)
+    if not crs:
+        raise HTTPException(status_code=404, detail="CRS document not found")
+    project = get_project_or_404(db, crs.project_id)
+    verify_team_membership(db, project.team_id, current_user.id)
+
+    logs = db.query(CRSAuditLog).filter(CRSAuditLog.crs_id == crs_id).order_by(CRSAuditLog.changed_at.desc()).all()
+    
+    return [
+        {
+            "id": log.id,
+            "crs_id": log.crs_id,
+            "changed_by": log.changed_by,
+            "changed_at": log.changed_at,
+            "action": log.action,
+            "old_status": log.old_status,
+            "new_status": log.new_status,
+            "old_content": log.old_content,
+            "new_content": log.new_content,
+            "summary": log.summary
+        }
+        for log in logs
+    ]
+
 
 @router.post("/{crs_id}/export")
 def export_crs(

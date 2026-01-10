@@ -76,7 +76,7 @@ def create_comment(
         id=comment.id,
         crs_id=comment.crs_id,
         author_id=comment.author_id,
-        author_name=current_user.username,
+        author_name=current_user.full_name,
         content=comment.content,
         created_at=comment.created_at
     )
@@ -111,7 +111,7 @@ def get_comments(
             id=comment.id,
             crs_id=comment.crs_id,
             author_id=comment.author_id,
-            author_name=author.username if author else "Unknown",
+            author_name=author.full_name if author else "Unknown",
             content=comment.content,
             created_at=comment.created_at
         ))

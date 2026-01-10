@@ -129,8 +129,12 @@ def list_pending_projects(
     # Get all team IDs where BA is a member
     team_ids = get_user_team_ids(db, current_user.id)
     
-    # Query pending projects from these teams with creator info
-    pending_projects = db.query(Project).filter(
+    # Query pending projects with eager loading to prevent N+1 queries
+    from sqlalchemy.orm import joinedload
+    pending_projects = db.query(Project).options(
+        joinedload(Project.creator),  # Eager load creator to avoid N+1
+        joinedload(Project.team)       # Eager load team to avoid N+1
+    ).filter(
         Project.team_id.in_(team_ids),
         Project.status == 'pending'
     ).order_by(Project.created_at.desc()).all()

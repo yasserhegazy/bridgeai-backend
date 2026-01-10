@@ -8,6 +8,11 @@ class Settings(BaseSettings):
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
     FRONTEND_URL: str = "http://localhost:3000"
     
+    # Security settings
+    MAX_REQUEST_SIZE: int = 10 * 1024 * 1024  # 10MB
+    PASSWORD_MIN_LENGTH: int = 8
+    MAX_LOGIN_ATTEMPTS: int = 5
+    
     # Email settings
     SMTP_HOST: str
     SMTP_PORT: int = 587

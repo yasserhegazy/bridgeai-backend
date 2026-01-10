@@ -54,9 +54,8 @@ def websocket_test_data(db: Session, test_client_user: User):
     }
 
 
-def test_websocket_connection_without_token(websocket_test_data):
+def test_websocket_connection_without_token(client: TestClient, websocket_test_data):
     """Test WebSocket connection fails without authentication token."""
-    client = TestClient(app)
     project_id = websocket_test_data["project"].id
     session_id = websocket_test_data["session"].id
     
@@ -68,9 +67,8 @@ def test_websocket_connection_without_token(websocket_test_data):
             pass
 
 
-def test_websocket_connection_with_valid_token(websocket_test_data):
+def test_websocket_connection_with_valid_token(client: TestClient, websocket_test_data):
     """Test WebSocket connection succeeds with valid token."""
-    client = TestClient(app)
     user = websocket_test_data["user"]
     project_id = websocket_test_data["project"].id
     session_id = websocket_test_data["session"].id
@@ -100,9 +98,8 @@ def test_websocket_connection_with_valid_token(websocket_test_data):
         assert "timestamp" in response
 
 
-def test_websocket_message_persistence(websocket_test_data, db: Session):
+def test_websocket_message_persistence(client: TestClient, websocket_test_data, db: Session):
     """Test that WebSocket messages are persisted to database."""
-    client = TestClient(app)
     user = websocket_test_data["user"]
     project_id = websocket_test_data["project"].id
     session_id = websocket_test_data["session"].id
@@ -144,9 +141,8 @@ def test_websocket_message_persistence(websocket_test_data, db: Session):
     assert saved_message.sender_id == user.id
 
 
-def test_websocket_broadcast_to_multiple_clients(websocket_test_data):
+def test_websocket_broadcast_to_multiple_clients(client: TestClient, websocket_test_data):
     """Test that messages are broadcast to all connected clients."""
-    client = TestClient(app)
     user = websocket_test_data["user"]
     project_id = websocket_test_data["project"].id
     session_id = websocket_test_data["session"].id
@@ -177,9 +173,8 @@ def test_websocket_broadcast_to_multiple_clients(websocket_test_data):
             assert response1["id"] == response2["id"]
 
 
-def test_websocket_invalid_json(websocket_test_data):
+def test_websocket_invalid_json(client: TestClient, websocket_test_data):
     """Test WebSocket handles invalid JSON gracefully."""
-    client = TestClient(app)
     user = websocket_test_data["user"]
     project_id = websocket_test_data["project"].id
     session_id = websocket_test_data["session"].id
@@ -200,9 +195,8 @@ def test_websocket_invalid_json(websocket_test_data):
         assert "Invalid JSON" in response["error"]
 
 
-def test_websocket_invalid_sender_type(websocket_test_data):
+def test_websocket_invalid_sender_type(client: TestClient, websocket_test_data):
     """Test WebSocket validates sender_type."""
-    client = TestClient(app)
     user = websocket_test_data["user"]
     project_id = websocket_test_data["project"].id
     session_id = websocket_test_data["session"].id
@@ -227,9 +221,8 @@ def test_websocket_invalid_sender_type(websocket_test_data):
         assert "Invalid sender_type" in response["error"]
 
 
-def test_websocket_empty_content(websocket_test_data, db: Session):
+def test_websocket_empty_content(client: TestClient, websocket_test_data, db: Session):
     """Test WebSocket ignores empty messages."""
-    client = TestClient(app)
     user = websocket_test_data["user"]
     project_id = websocket_test_data["project"].id
     session_id = websocket_test_data["session"].id
@@ -265,10 +258,8 @@ def test_websocket_empty_content(websocket_test_data, db: Session):
     assert messages_after == messages_before
 
 
-def test_websocket_unauthorized_project_access(websocket_test_data, db: Session):
+def test_websocket_unauthorized_project_access(client: TestClient, websocket_test_data, db: Session):
     """Test WebSocket denies access to unauthorized projects."""
-    client = TestClient(app)
-    
     # Create another user not in the team
     unauthorized_user = User(
         full_name="Unauthorized User",

@@ -8,11 +8,13 @@ from fastapi.responses import JSONResponse
 from slowapi.errors import RateLimitExceeded
 
 from app.core.rate_limit import limiter
+from app.core.middleware import SecurityHeadersMiddleware
 from app.db.session import engine, Base
 from app.api import router as api_router
 from app.api import auth
 from app import __version__
 from app.ai.chroma_manager import initialize_chroma
+from starlette.middleware.base import BaseHTTPMiddleware
 
 # 1. LIFESPAN: This is the secret. The app "starts" first, THEN runs this.
 @asynccontextmanager
@@ -45,15 +47,39 @@ async def custom_rate_limit_handler(request: Request, exc: RateLimitExceeded):
 
 # Update origins for production
 origins = [
-    "http://localhost:3000",
+    "http://localhost:3000",  # your frontend React app
+    "http://localhost:3001",  # alternative frontend port
+    "http://127.0.0.1:3000",  # localhost IP variant
+    "http://127.0.0.1:3001",  # alternative port IP variant
     "https://bridgeai-ai.vercel.app", # Your frontend URL
+    
 ]
 
+# ✅ Add security headers middleware
+app.add_middleware(SecurityHeadersMiddleware)
+
+# Request size limit middleware
+class RequestSizeLimitMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        # Limit request body size to 10MB
+        max_size = 10 * 1024 * 1024
+        if request.headers.get("content-length"):
+            content_length = int(request.headers["content-length"])
+            if content_length > max_size:
+                return JSONResponse(
+                    status_code=413,
+                    content={"detail": "Request body too large. Maximum size is 10MB."}
+                )
+        return await call_next(request)
+
+app.add_middleware(RequestSizeLimitMiddleware)
+
+# ✅ Add CORS middleware only once
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"], # For your project grade, "*" is the safest to avoid CORS errors
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["*"],
 )
 

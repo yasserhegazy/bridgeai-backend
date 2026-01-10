@@ -1,8 +1,9 @@
-from pydantic import BaseModel, root_validator
+from pydantic import BaseModel, root_validator, validator, Field
 from typing import Optional, List, Any, Dict
 from datetime import datetime
 from enum import Enum
 from fastapi import HTTPException, status
+import re
 
 
 class TeamRole(str, Enum):
@@ -31,14 +32,53 @@ class UserInfo(BaseModel):
 
 # Team schemas
 class TeamCreate(BaseModel):
-    name: str
-    description: Optional[str] = None
+    name: str = Field(..., min_length=1, max_length=100)
+    description: Optional[str] = Field(None, max_length=1000)
+    
+    @validator('name')
+    def validate_name(cls, v):
+        v = v.strip()
+        if not v:
+            raise ValueError('Team name cannot be empty')
+        if not re.match(r'^[a-zA-Z0-9\s\-_]+$', v):
+            raise ValueError('Team name can only contain letters, numbers, spaces, hyphens, and underscores')
+        return v
+    
+    @validator('description')
+    def validate_description(cls, v):
+        if v is not None:
+            v = v.strip()
+            dangerous_patterns = [r'<script', r'javascript:', r'onerror=', r'onclick=']
+            for pattern in dangerous_patterns:
+                if re.search(pattern, v, re.IGNORECASE):
+                    raise ValueError('Description contains invalid content')
+        return v
 
 
 class TeamUpdate(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
+    name: Optional[str] = Field(None, min_length=1, max_length=100)
+    description: Optional[str] = Field(None, max_length=1000)
     status: Optional[TeamStatus] = None
+    
+    @validator('name')
+    def validate_name(cls, v):
+        if v is not None:
+            v = v.strip()
+            if not v:
+                raise ValueError('Team name cannot be empty')
+            if not re.match(r'^[a-zA-Z0-9\s\-_]+$', v):
+                raise ValueError('Team name can only contain letters, numbers, spaces, hyphens, and underscores')
+        return v
+    
+    @validator('description')
+    def validate_description(cls, v):
+        if v is not None:
+            v = v.strip()
+            dangerous_patterns = [r'<script', r'javascript:', r'onerror=', r'onclick=']
+            for pattern in dangerous_patterns:
+                if re.search(pattern, v, re.IGNORECASE):
+                    raise ValueError('Description contains invalid content')
+        return v
     
     @root_validator(pre=True)
     def validate_no_immutable_fields(cls, values: Dict[str, Any]) -> Dict[str, Any]:
