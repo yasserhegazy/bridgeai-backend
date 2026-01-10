@@ -13,23 +13,23 @@ from app.api import router as api_router
 from app.api import auth
 from app import __version__
 from app.ai.chroma_manager import initialize_chroma
-import asyncio
 
+# 1. LIFESPAN: This is the secret. The app "starts" first, THEN runs this.
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # This tells Python: "Start the server NOW, and run this function in the background"
-    asyncio.create_task(initialize_heavy_resources(app))
-    yield
-
-async def initialize_heavy_resources(app: FastAPI):
-    logging.info("Starting heavy initialization in background...")
+    # This runs AFTER the server starts listening on the port
+    logging.info("Starting heavy initialization...")
     try:
         chroma_client, chroma_collection = initialize_chroma()
         app.state.chroma_client = chroma_client
         app.state.chroma_collection = chroma_collection
         logging.info("ChromaDB successfully initialized in background.")
     except Exception as e:
-        logging.error(f"ChromaDB failed: {e}")    
+        logging.error(f"ChromaDB failed: {str(e)}")
+    
+    yield  # The app stays running here
+    
+    # Optional: Put cleanup code here (e.g., closing DB)
 
 app = FastAPI(
     title="BridgeAI Backend",
@@ -63,5 +63,3 @@ app.include_router(auth.router)
 @app.get("/")
 def root():
     return {"status": "alive", "version": __version__}
-
-
