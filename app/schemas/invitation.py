@@ -38,6 +38,7 @@ class InvitationPublicOut(BaseModel):
     role: str
     team_id: int
     team_name: Optional[str] = None
+    team_description: Optional[str] = None
     status: str
     created_at: datetime
     expires_at: Optional[datetime]

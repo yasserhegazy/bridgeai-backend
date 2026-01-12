@@ -71,6 +71,7 @@ def get_invitation(
         role=invitation.role,
         team_id=invitation.team_id,
         team_name=invitation.team.name if invitation.team else None,
+        team_description=invitation.team.description if invitation.team else None,
         status=invitation.status,
         created_at=invitation.created_at,
         expires_at=invitation.expires_at,
@@ -203,3 +204,61 @@ def accept_invitation(
         team_id=invitation.team_id,
         role=invitation.role
     )
+
+
+@router.post("/{token}/reject")
+@limiter.limit("5/minute")
+def reject_invitation(
+    request: Request,
+    token: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Reject (decline) a team invitation.
+
+    Marks the invitation as canceled. Requires authentication and the current
+    user's email must match the invitation email.
+    """
+    invitation = db.query(Invitation).filter(Invitation.token == token).first()
+
+    if not invitation:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Invitation not found"
+        )
+
+    # If expired, mark expired and fail
+    if invitation.is_expired():
+        if invitation.status == 'pending':
+            invitation.status = 'expired'
+            db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This invitation has expired"
+        )
+
+    if invitation.status != 'pending':
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"This invitation is {invitation.status}"
+        )
+
+    if current_user.email.lower() != invitation.email.lower():
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This invitation was sent to a different email address"
+        )
+
+    invitation.status = 'canceled'
+
+    # Best-effort: mark any matching team invitation notifications as read
+    db.query(Notification).filter(
+        Notification.user_id == current_user.id,
+        Notification.type == NotificationType.TEAM_INVITATION,
+        Notification.reference_id == invitation.team_id,
+        Notification.is_read == False
+    ).update({"is_read": True})
+
+    db.commit()
+
+    return {"message": "Invitation rejected"}

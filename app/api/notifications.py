@@ -46,7 +46,8 @@ def enrich_notification(notification: Notification, db: Session, projects_map: d
         team = teams_map.get(notification.reference_id) if teams_map else None
         if not team:
             team = db.query(Team).filter(Team.id == notification.reference_id).first()
-        
+
+        # Try to find the pending invitation for this user + team.
         invitation = invitations_map.get(notification.reference_id) if invitations_map else None
         if not invitation and team:
             user = db.query(User).filter(User.id == notification.user_id).first()
@@ -56,24 +57,23 @@ def enrich_notification(notification: Notification, db: Session, projects_map: d
                     Invitation.email == user.email,
                     Invitation.status == 'pending'
                 ).first()
-            
-            if team:
-                notification_dict["metadata"] = {
-                    "team_id": team.id,
-                    "team_name": team.name,
-                    "invitation_token": invitation.token if invitation else None,
-                    "invitation_role": invitation.role if invitation else None,
-                    "action_type": "invitation_received"
-                }
-        else:
-            # This is an acceptance notification - reference_id is team_id
-            team = db.query(Team).filter(Team.id == notification.reference_id).first()
-            if team:
-                notification_dict["metadata"] = {
-                    "team_id": team.id,
-                    "team_name": team.name,
-                    "action_type": "invitation_accepted"
-                }
+
+        if team and invitation and invitation.status == 'pending':
+            # Pending invitation: include token so UI can open modal
+            notification_dict["metadata"] = {
+                "team_id": team.id,
+                "team_name": team.name,
+                "invitation_token": invitation.token,
+                "invitation_role": invitation.role,
+                "action_type": "invitation_received"
+            }
+        elif team:
+            # No pending invitation: treat as informational (e.g., accepted)
+            notification_dict["metadata"] = {
+                "team_id": team.id,
+                "team_name": team.name,
+                "action_type": "invitation_accepted"
+            }
     
     # CRS notifications already have metadata stored, just return it
     

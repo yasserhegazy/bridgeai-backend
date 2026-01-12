@@ -610,3 +610,56 @@ def list_team_invitations(
     db.commit()
     
     return invitations
+
+
+@router.delete("/{team_id}/invitations/{invitation_id}")
+@limiter.limit("20/minute")
+def cancel_invitation(
+    request: Request,
+    team_id: int,
+    invitation_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """
+    Cancel a pending invitation.
+    Only team owners and admins can cancel invitations.
+    """
+    # Check if current user has permission (owner or admin)
+    team_member = db.query(TeamMember).filter(
+        TeamMember.team_id == team_id,
+        TeamMember.user_id == current_user.id,
+        TeamMember.is_active == True,
+        TeamMember.role.in_([TeamRole.owner, TeamRole.admin])
+    ).first()
+    
+    if not team_member:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied. Only team owners and admins can cancel invitations."
+        )
+    
+    # Get the invitation
+    invitation = db.query(Invitation).filter(
+        Invitation.id == invitation_id,
+        Invitation.team_id == team_id
+    ).first()
+    
+    if not invitation:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Invitation not found"
+        )
+    
+    # Check if invitation can be canceled
+    if invitation.status != 'pending':
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot cancel invitation with status: {invitation.status}"
+        )
+    
+    # Update invitation status to canceled
+    invitation.status = 'canceled'
+    db.commit()
+    
+    return {"message": "Invitation canceled successfully"}
