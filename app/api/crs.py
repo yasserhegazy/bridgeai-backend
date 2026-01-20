@@ -27,7 +27,10 @@ from app.services.export_service import (
     crs_to_professional_html,
     html_to_pdf_bytes,
     export_markdown_bytes,
+    crs_to_csv_data,
+    generate_csv_bytes,
 )
+
 
 
 router = APIRouter()
@@ -587,6 +590,7 @@ def get_crs_audit_logs(
 def export_crs(
     crs_id: int,
     format: ExportFormat = Query(ExportFormat.pdf),
+    requirements_only: bool = Query(False, description="If true, export only requirements (CSV only)"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -680,6 +684,24 @@ def export_crs(
         except RuntimeError as e:
             raise HTTPException(status_code=500, detail=str(e))
         media_type = "application/pdf"
+    elif format == ExportFormat.csv:
+        # Ensure we have JSON content
+        try:
+             crs_json_for_csv = json.loads(content)
+        except json.JSONDecodeError:
+             # Fallback if content is not JSON (legacy or plain text)
+             crs_json_for_csv = {"project_title": "CRS Export", "project_description": content}
+
+        csv_rows = crs_to_csv_data(
+            crs_json_for_csv, 
+            doc_id=crs.id, 
+            doc_version=crs.version,
+            created_by=str(crs.created_by),
+            created_date=crs.created_at.isoformat() if crs.created_at else "",
+            requirements_only=requirements_only
+        )
+        data = generate_csv_bytes(csv_rows)
+        media_type = "text/csv"
     else:
         raise HTTPException(status_code=400, detail="Unsupported format")
     
