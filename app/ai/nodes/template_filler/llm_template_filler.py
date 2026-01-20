@@ -378,20 +378,103 @@ Return pure JSON now:
         # Check completeness
         is_complete = self._check_completeness(template)
 
+        # Get completeness metadata
+        completeness_info = self._get_completeness_metadata(template)
+        
         return {
             "crs_template": template.to_dict(),
             "crs_content": template.to_json(),
             "summary_points": summary["summary_points"],
             "overall_summary": summary["overall_summary"],
-            "is_complete": is_complete
+            "is_complete": is_complete,
+            "completeness_percentage": completeness_info["percentage"],
+            "missing_required_fields": completeness_info["missing_required"],
+            "missing_optional_fields": completeness_info["missing_optional"],
+            "filled_optional_count": completeness_info["filled_optional_count"]
         }
 
-    def _check_completeness(self, template: CRSTemplate) -> bool:
+    def _get_completeness_metadata(self, template: CRSTemplate) -> dict:
+        """
+        Calculate detailed completeness metadata for the CRS template.
+        
+        Returns:
+            dict: Contains percentage, missing required fields, missing optional fields,
+                  and filled optional count.
+        """
+        # Helper function to check if a string field has meaningful content
+        def has_content(value: str) -> bool:
+            if not value:
+                return False
+            value_stripped = value.strip()
+            return value_stripped and value_stripped.lower() not in ["not specified", "n/a", "none", ""]
+        
+        # Required fields
+        required_fields = {
+            "project_title": has_content(template.project_title),
+            "project_description": has_content(template.project_description),
+            "functional_requirements": len(template.functional_requirements) > 0
+        }
+        
+        # Optional fields (at least 2 needed)
+        optional_fields = {
+            "project_objectives": len(template.project_objectives) > 0,
+            "target_users": len(template.target_users) > 0,
+            "timeline_constraints": has_content(template.timeline_constraints),
+            "budget_constraints": has_content(template.budget_constraints),
+            "success_metrics": len(template.success_metrics) > 0
+        }
+        
+        # Calculate missing fields
+        missing_required = [field for field, filled in required_fields.items() if not filled]
+        missing_optional = [field for field, filled in optional_fields.items() if not filled]
+        filled_optional_count = sum(optional_fields.values())
+        
+        # Calculate percentage (required fields + at least 2 optional)
+        required_filled = len(required_fields) - len(missing_required)
+        total_required = len(required_fields)
+        optional_needed = min(filled_optional_count, 2)  # Max 2 count towards completion
+        
+        # Total completion out of (3 required + 2 optional = 5)
+        total_filled = required_filled + optional_needed
+        total_needed = total_required + 2
+        percentage = int((total_filled / total_needed) * 100)
+        
+        return {
+            "percentage": percentage,
+            "missing_required": missing_required,
+            "missing_optional": missing_optional,
+            "filled_optional_count": filled_optional_count
+        }
+
+    def _check_completeness(self, template: CRSTemplate, strict_mode: bool = True) -> bool:
         """
         Check if the CRS template has sufficient information.
         
-        Returns True if essential fields are populated.
+        Args:
+            template: The CRS template to check
+            strict_mode: If True, enforces all completeness criteria.
+                        If False, returns True for any partial content (for preview mode).
+        
+        Returns True if essential fields are populated (in strict mode) or if any content exists (in preview mode).
         """
+        # In non-strict mode (preview), consider it complete if any content exists
+        if not strict_mode:
+            def has_content(value: str) -> bool:
+                if not value:
+                    return False
+                value_stripped = value.strip()
+                return value_stripped and value_stripped.lower() not in ["not specified", "n/a", "none", ""]
+            
+            has_any_content = (
+                has_content(template.project_title) or
+                has_content(template.project_description) or
+                len(template.functional_requirements) > 0 or
+                len(template.project_objectives) > 0 or
+                len(template.target_users) > 0
+            )
+            return has_any_content
+        
+        # Strict mode: enforce all completeness criteria
         essential_filled = all([
             template.project_title,
             template.project_description,

@@ -15,7 +15,7 @@ from app.db.session import get_db
 from app.models.crs import CRSDocument, CRSStatus
 from app.models.user import User, UserRole
 from app.models.project import Project
-from app.services.crs_service import get_latest_crs, persist_crs_document, get_crs_versions, update_crs_status, get_crs_by_id
+from app.services.crs_service import get_latest_crs, persist_crs_document, get_crs_versions, update_crs_status, get_crs_by_id, generate_preview_crs
 from app.services.notification_service import (
     notify_crs_created,
     notify_crs_status_changed,
@@ -76,6 +76,20 @@ class AuditLogOut(BaseModel):
 
     class Config:
         orm_mode = True
+
+
+class CRSPreviewOut(BaseModel):
+    """Schema for CRS preview response (not persisted)."""
+    content: str
+    summary_points: List[str]
+    overall_summary: str
+    is_complete: bool
+    completeness_percentage: int
+    missing_required_fields: List[str]
+    missing_optional_fields: List[str]
+    filled_optional_count: int
+    project_id: int
+    session_id: int
 
 
 @router.post("/", response_model=CRSOut, status_code=status.HTTP_201_CREATED)
@@ -219,6 +233,142 @@ def read_crs_for_session(
     
     # No CRS linked to this session
     return None
+
+
+@router.post("/sessions/{session_id}/generate-draft", response_model=CRSOut, status_code=status.HTTP_201_CREATED)
+async def generate_draft_crs_from_session(
+    session_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Generate and persist a draft CRS from current conversation state, even if incomplete.
+    
+    This endpoint allows users to generate a draft CRS document that can be refined later,
+    without requiring all fields to be complete.
+    
+    Unlike the automatic generation, this creates a draft status CRS immediately.
+    """
+    from app.models.session_model import SessionModel
+    
+    # Get the session and verify access
+    session = db.query(SessionModel).filter(SessionModel.id == session_id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    # Verify user has access to this session's project
+    project = get_project_or_404(db, session.project_id)
+    verify_team_membership(db, project.team_id, current_user.id)
+    
+    try:
+        # Generate preview first
+        preview_data = await generate_preview_crs(
+            db=db,
+            session_id=session_id,
+            user_id=current_user.id
+        )
+        
+        # Persist as draft CRS (force_draft=True bypasses completeness check)
+        crs = persist_crs_document(
+            db=db,
+            project_id=session.project_id,
+            created_by=current_user.id,
+            content=preview_data["content"],
+            summary_points=preview_data["summary_points"],
+            force_draft=True
+        )
+        
+        # Link CRS to session
+        session.crs_document_id = crs.id
+        db.commit()
+        db.refresh(session)
+        
+        # Notify team members
+        from app.models.team import TeamMember
+        from app.services.notification_service import notify_crs_created
+        
+        notify_user_ids = db.query(TeamMember.user_id).filter(
+            TeamMember.team_id == project.team_id,
+            TeamMember.is_active == True,
+            TeamMember.user_id != current_user.id
+        ).all()
+        notify_users = [uid[0] for uid in notify_user_ids]
+        
+        notify_crs_created(db, crs, project, notify_users, send_email_notification=True)
+        
+        return CRSOut(
+            id=crs.id,
+            project_id=crs.project_id,
+            status=crs.status.value,
+            version=crs.version,
+            content=crs.content,
+            summary_points=preview_data["summary_points"],
+            created_by=crs.created_by,
+            approved_by=crs.approved_by,
+            rejection_reason=crs.rejection_reason,
+            reviewed_at=crs.reviewed_at,
+            created_at=crs.created_at,
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate draft CRS: {str(e)}"
+        )
+
+
+@router.get("/sessions/{session_id}/preview", response_model=CRSPreviewOut)
+async def preview_crs_for_session(
+    session_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Generate a preview CRS from the current conversation state without persisting it.
+    
+    This endpoint allows users to see their CRS progress even when incomplete,
+    providing visibility into what information has been gathered so far.
+    
+    Returns:
+        - CRS content (JSON)
+        - Summary points
+        - Completeness percentage
+        - Missing required and optional fields
+        
+    Use this during active conversations to check progress before finalizing.
+    """
+    from app.models.session_model import SessionModel
+    
+    # Get the session and verify access
+    session = db.query(SessionModel).filter(SessionModel.id == session_id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    # Verify user has access to this session's project
+    project = get_project_or_404(db, session.project_id)
+    verify_team_membership(db, project.team_id, current_user.id)
+    
+    try:
+        preview_data = await generate_preview_crs(
+            db=db,
+            session_id=session_id,
+            user_id=current_user.id
+        )
+        return CRSPreviewOut(**preview_data)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to generate CRS preview: {str(e)}"
+        )
 
 
 @router.get("/review", response_model=List[CRSOut])
