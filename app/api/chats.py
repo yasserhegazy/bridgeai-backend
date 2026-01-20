@@ -91,6 +91,7 @@ def get_project_chats(
             crs_document_id=session.crs_document_id,
             name=session.name,
             status=session.status,
+            crs_pattern=session.crs_pattern,
             started_at=session.started_at,
             ended_at=session.ended_at,
             message_count=message_count
@@ -117,7 +118,8 @@ def create_project_chat(
         user_id=current_user.id,
         crs_document_id=session_data.crs_document_id,
         name=session_data.name,
-        status=SessionStatus.active
+        status=SessionStatus.active,
+        crs_pattern=session_data.crs_pattern
     )
     
     db.add(new_session)
@@ -421,6 +423,7 @@ async def websocket_endpoint(
                             "db": db,
                             "message_id": new_message.id,  # Pass message ID for memory linking
                             "user_id": user.id,
+                            "crs_pattern": session.crs_pattern.value if session.crs_pattern else "bakok",
                         }
                         
                         # Invoke graph (using ainvoke if available, otherwise synchronous invoke)

@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.api.projects import get_project_or_404, verify_team_membership, get_user_team_ids, verify_ba_role
 from app.core.security import get_current_user
 from app.db.session import get_db
-from app.models.crs import CRSDocument, CRSStatus
+from app.models.crs import CRSDocument, CRSStatus, CRSPattern
 from app.models.user import User, UserRole
 from app.models.project import Project
 from app.services.crs_service import get_latest_crs, persist_crs_document, get_crs_versions, update_crs_status, get_crs_by_id
@@ -40,6 +40,7 @@ class CRSCreate(BaseModel):
     project_id: int
     content: str
     summary_points: List[str] = Field(default_factory=list)
+    pattern: Optional[str] = Field(default="babok", description="CRS pattern: iso_iec_ieee_29148, ieee_830, or babok (default)")
 
 
 class CRSStatusUpdate(BaseModel):
@@ -52,6 +53,7 @@ class CRSOut(BaseModel):
     id: int
     project_id: int
     status: str
+    pattern: str
     version: int
     content: str
     summary_points: List[str]
@@ -99,6 +101,7 @@ def create_crs(
         created_by=current_user.id,
         content=payload.content,
         summary_points=payload.summary_points,
+        pattern=payload.pattern,
     )
 
     # Notify team members - optimized single query

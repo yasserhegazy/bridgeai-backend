@@ -11,6 +11,13 @@ class CRSStatus(enum.Enum):
     rejected = "rejected"
 
 
+class CRSPattern(enum.Enum):
+    """CRS Pattern/Standard selection for requirement documentation."""
+    iso_iec_ieee_29148 = "iso_iec_ieee_29148"
+    ieee_830 = "ieee_830"
+    babok = "babok"
+
+
 class CRSDocument(Base):
     __tablename__ = "crs_documents"
 
@@ -20,6 +27,7 @@ class CRSDocument(Base):
     content = Column(Text)  # structured JSON/text
     summary_points = Column(Text)  # main points extracted from chat
     status = Column(Enum(CRSStatus), default=CRSStatus.draft, index=True)  # CRITICAL: Frequently filtered (4-5 values, moderate selectivity)
+    pattern = Column(Enum(CRSPattern), default=CRSPattern.babok)  # CRS pattern/standard selection
     version = Column(Integer, default=1)  # No index - always queried with project_id
     approved_by = Column(Integer, ForeignKey("users.id"), nullable=True)  # No index - rarely queried
     rejection_reason = Column(Text, nullable=True)  # BA feedback when rejecting

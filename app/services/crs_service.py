@@ -9,7 +9,7 @@ from datetime import datetime
 
 from sqlalchemy.orm import Session
 
-from app.models.crs import CRSDocument, CRSStatus
+from app.models.crs import CRSDocument, CRSStatus, CRSPattern
 from app.ai.memory_service import create_memory
 
 logger = logging.getLogger(__name__)
@@ -22,6 +22,7 @@ def persist_crs_document(
     created_by: int,
     content: str,
     summary_points: Optional[List[str]] = None,
+    pattern: Optional[str] = None,
     store_embedding: bool = True
 ) -> CRSDocument:
     """
@@ -29,6 +30,7 @@ def persist_crs_document(
     Embedding storage is optional to allow tests to run without Chroma.
     
     Auto-increments the version number based on existing CRS documents for the project.
+    Pattern defaults to 'bakok' if not specified.
     """
     summary_payload = summary_points or []
     summary_as_text = json.dumps(summary_payload)
@@ -37,11 +39,18 @@ def persist_crs_document(
     latest = get_latest_crs(db, project_id=project_id)
     next_version = (latest.version + 1) if latest else 1
 
+    # Validate and set pattern, default to babok
+    try:
+        crs_pattern = CRSPattern(pattern or "babok")
+    except ValueError:
+        crs_pattern = CRSPattern.babok
+
     crs = CRSDocument(
         project_id=project_id,
         created_by=created_by,
         content=content,
         summary_points=summary_as_text,
+        pattern=crs_pattern,
         version=next_version,
     )
 
