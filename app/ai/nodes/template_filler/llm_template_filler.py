@@ -92,8 +92,192 @@ class LLMTemplateFiller:
     """
     LLM-powered CRS template filler using Groq LLM.
     Extracts and maps requirements from conversation to structured CRS format.
+    Supports multiple CRS patterns: BABOK, IEEE 830, ISO/IEC/IEEE 29148.
     """
 
+    # Pattern-specific prompts
+    BABOK_EXTRACTION_PROMPT = """
+You are a Senior Business Analyst following the BABOK (Business Analysis Body of Knowledge) guide.
+
+Your task is to synthesize the conversation into a well-structured Customer Requirements Specification (CRS) document adhering to BABOK standards.
+
+BABOK FOCUS AREAS:
+- Business Need: Problem statement, desired outcome, strategic alignment
+- Stakeholders: Users, customers, and their roles
+- Current State vs. Future State: Gap analysis
+- Solution Scope: In-scope and out-of-scope items
+- Requirements Classification: Business, Stakeholder, Solution, and Transition requirements
+
+CRITICAL INSTRUCTIONS:
+1. DO NOT copy raw conversation text into the output
+2. DO NOT include chat messages or dialogue in any field
+3. SYNTHESIZE information from multiple messages into concise, professional statements
+4. Each requirement should be a clear, specific, actionable item
+5. Focus on BUSINESS VALUE and STAKEHOLDER NEEDS
+
+USER'S LATEST INPUT:
+{user_input}
+
+CONVERSATION HISTORY:
+{conversation_history}
+
+PREVIOUSLY EXTRACTED FIELDS:
+{extracted_fields}
+
+Return ONLY a valid JSON object:
+{{
+    "project_title": "Short Project Name",
+    "project_description": "A concise 2-4 sentence description summarizing business need and desired outcome.",
+    "project_objectives": ["Business objective 1", "Business objective 2"],
+    "target_users": ["User type 1", "User type 2"],
+    "stakeholders": ["Stakeholder 1", "Stakeholder 2"],
+    "functional_requirements": [
+        {{
+            "id": "BR-001",
+            "title": "Business Requirement Title",
+            "description": "How this requirement delivers business value.",
+            "priority": "high"
+        }}
+    ],
+    "performance_requirements": ["Requirement 1"],
+    "security_requirements": ["Requirement 1"],
+    "scalability_requirements": ["Requirement 1"],
+    "technology_stack": {{"frontend": [], "backend": [], "database": [], "other": []}},
+    "integrations": ["Integration 1"],
+    "budget_constraints": "Budget information or 'Not specified'",
+    "timeline_constraints": "Timeline information or 'Not specified'",
+    "technical_constraints": ["Constraint 1"],
+    "success_metrics": ["Metric 1"],
+    "acceptance_criteria": ["Criteria 1"],
+    "assumptions": ["Assumption 1"],
+    "risks": ["Risk 1"],
+    "out_of_scope": ["Out of scope item 1"]
+}}
+
+Return pure JSON now:
+"""
+
+    IEEE830_EXTRACTION_PROMPT = """
+You are a Technical Systems Analyst generating a Software Requirements Specification (SRS) based on IEEE 830-1998 standard.
+
+Your task is to synthesize the conversation into a well-structured CRS document following IEEE 830 standard structure.
+
+IEEE 830 FOCUS AREAS:
+- Introduction: Purpose, scope, definitions, references
+- Overall Description: Product perspective, functions, user characteristics, constraints, assumptions
+- Specific Requirements: Functional, interface, performance, design constraints, software attributes
+
+CRITICAL INSTRUCTIONS:
+1. DO NOT copy raw conversation text into the output
+2. Focus on TECHNICAL SPECIFICATIONS and DETAILED REQUIREMENTS
+3. Each requirement must be verifiable and testable
+4. Use clear, unambiguous language
+5. Include external interface specifications
+
+USER'S LATEST INPUT:
+{user_input}
+
+CONVERSATION HISTORY:
+{conversation_history}
+
+PREVIOUSLY EXTRACTED FIELDS:
+{extracted_fields}
+
+Return ONLY a valid JSON object:
+{{
+    "project_title": "Software System Name",
+    "project_description": "Detailed technical description of the software system and its purpose.",
+    "project_objectives": ["Technical objective 1", "Technical objective 2"],
+    "target_users": ["User type 1", "User type 2"],
+    "stakeholders": ["Stakeholder 1", "Stakeholder 2"],
+    "functional_requirements": [
+        {{
+            "id": "SRS-001",
+            "title": "Verifiable Technical Requirement",
+            "description": "Specific, testable requirement with inputs, processing, and outputs.",
+            "priority": "high"
+        }}
+    ],
+    "performance_requirements": ["Response time < 2 seconds", "Handle 100 concurrent users"],
+    "security_requirements": ["Encrypt sensitive data", "Implement role-based access control"],
+    "scalability_requirements": ["Scale to 10,000 users", "Support horizontal scaling"],
+    "technology_stack": {{"frontend": [], "backend": [], "database": [], "other": []}},
+    "integrations": ["External system 1"],
+    "budget_constraints": "Budget information or 'Not specified'",
+    "timeline_constraints": "Timeline information or 'Not specified'",
+    "technical_constraints": ["Must use existing APIs", "Must maintain backward compatibility"],
+    "success_metrics": ["Test coverage > 80%", "Zero critical bugs"],
+    "acceptance_criteria": ["Passes all regression tests", "Performance targets met"],
+    "assumptions": ["Assumption 1"],
+    "risks": ["Risk 1"],
+    "out_of_scope": ["Out of scope item 1"]
+}}
+
+Return pure JSON now:
+"""
+
+    ISO29148_EXTRACTION_PROMPT = """
+You are a Lead Systems Engineer compiling requirements into a Specification document compliant with ISO/IEC/IEEE 29148.
+
+Your task is to synthesize the conversation into a well-structured CRS document following ISO/IEC/IEEE 29148 standard.
+
+ISO/IEC/IEEE 29148 FOCUS AREAS:
+- Operational Concepts: User needs and operational environment
+- System Requirements: Organized by user goal or business process
+- Quality Attributes: Reliability, usability, efficiency, maintainability, portability
+- Interface Requirements: APIs, UI, external system connections
+- Verification Criteria: Acceptance criteria and validation methods
+
+CRITICAL INSTRUCTIONS:
+1. DO NOT copy raw conversation text into the output
+2. Focus on OPERATIONAL CONCEPTS and QUALITY ATTRIBUTES
+3. Organize requirements by business process or user goal
+4. Ensure verifiable and traceable requirements
+5. Use clear, unambiguous, concise language
+
+USER'S LATEST INPUT:
+{user_input}
+
+CONVERSATION HISTORY:
+{conversation_history}
+
+PREVIOUSLY EXTRACTED FIELDS:
+{extracted_fields}
+
+Return ONLY a valid JSON object:
+{{
+    "project_title": "System Name",
+    "project_description": "Concise description of system operational concept and purpose.",
+    "project_objectives": ["System objective 1", "System objective 2"],
+    "target_users": ["User type 1", "User type 2"],
+    "stakeholders": ["Stakeholder 1", "Stakeholder 2"],
+    "functional_requirements": [
+        {{
+            "id": "SYS-001",
+            "title": "User Goal or Business Process",
+            "description": "Verifiable requirement organized by user goal with acceptance criteria.",
+            "priority": "high"
+        }}
+    ],
+    "performance_requirements": ["Latency requirements", "Throughput requirements"],
+    "security_requirements": ["Authentication requirements", "Data protection requirements"],
+    "scalability_requirements": ["Capacity requirements", "Growth trajectory"],
+    "technology_stack": {{"frontend": [], "backend": [], "database": [], "other": []}},
+    "integrations": ["System integration 1"],
+    "budget_constraints": "Budget or 'Not specified'",
+    "timeline_constraints": "Timeline or 'Not specified'",
+    "technical_constraints": ["Interoperability requirements", "Compliance requirements"],
+    "success_metrics": ["Quality metrics", "Acceptance metrics"],
+    "acceptance_criteria": ["Acceptance test criteria"],
+    "assumptions": ["Environmental assumption 1"],
+    "risks": ["Operational risk 1"],
+    "out_of_scope": ["Out of scope item 1"]
+}}
+
+Return pure JSON now:
+"""
+
+    # Original prompt kept as default
     EXTRACTION_PROMPT = """
 You are an expert Business Analyst specializing in requirements documentation.
 
@@ -197,13 +381,14 @@ IMPORTANT: Return ONLY a valid JSON object without any markdown formatting.
 Return pure JSON now:
 """
 
-    def __init__(self, model: str = "llama-3.3-70b-versatile", temperature: float = 0.2):
+    def __init__(self, model: str = "llama-3.3-70b-versatile", temperature: float = 0.2, pattern: Optional[str] = None):
         """
         Initialize the template filler with Groq LLM.
         
         Args:
             model: Groq model to use
             temperature: Lower temperature for more consistent structured output
+            pattern: CRS pattern to use (babok, ieee_830, iso_iec_ieee_29148)
         """
         api_key = os.getenv("GROQ_API_KEY")
         if not api_key:
@@ -215,8 +400,18 @@ Return pure JSON now:
             temperature=temperature,
             max_tokens=4096
         )
+        
+        self.pattern = pattern or "babok"  # Default to BABOK
 
-        self.extraction_prompt = ChatPromptTemplate.from_template(self.EXTRACTION_PROMPT)
+        # Select prompt based on pattern
+        if self.pattern == "ieee_830":
+            extraction_prompt = self.IEEE830_EXTRACTION_PROMPT
+        elif self.pattern == "iso_iec_ieee_29148":
+            extraction_prompt = self.ISO29148_EXTRACTION_PROMPT
+        else:  # default to babok
+            extraction_prompt = self.BABOK_EXTRACTION_PROMPT
+
+        self.extraction_prompt = ChatPromptTemplate.from_template(extraction_prompt)
         self.summary_prompt = ChatPromptTemplate.from_template(self.SUMMARY_PROMPT)
 
     def _extract_json(self, text: str) -> Dict:

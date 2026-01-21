@@ -9,6 +9,7 @@ from app.core.security import get_current_user, decode_access_token
 from app.models.user import User
 from app.models.session_model import SessionModel, SessionStatus
 from app.models.message import Message, SenderType
+from app.models.crs import CRSDocument
 from app.schemas.chat import (
     SessionCreate,
     SessionOut,
@@ -91,7 +92,6 @@ def get_project_chats(
             crs_document_id=session.crs_document_id,
             name=session.name,
             status=session.status,
-            crs_pattern=session.crs_pattern,
             started_at=session.started_at,
             ended_at=session.ended_at,
             message_count=message_count
@@ -118,8 +118,7 @@ def create_project_chat(
         user_id=current_user.id,
         crs_document_id=session_data.crs_document_id,
         name=session_data.name,
-        status=SessionStatus.active,
-        crs_pattern=session_data.crs_pattern
+        status=SessionStatus.active
     )
     
     db.add(new_session)
@@ -356,6 +355,7 @@ async def websocket_endpoint(
                 message_data = json.loads(data)
                 content = message_data.get("content", "").strip()
                 sender_type_str = message_data.get("sender_type", "client")
+                crs_pattern_from_message = message_data.get("crs_pattern")  # Optional pattern from client
                 
                 if not content:
                     continue
@@ -415,6 +415,20 @@ async def websocket_endpoint(
                             history_strings.append(f"{role}: {msg.content}")
 
                         # Prepare state for AI
+                        # CRS pattern priority: message > existing CRS > default
+                        crs_pattern_value = "babok"  # default
+                        
+                        # If pattern was sent in message, use it
+                        if crs_pattern_from_message:
+                            crs_pattern_value = crs_pattern_from_message
+                        # Otherwise, get from the latest CRS for this chat session
+                        elif session.crs_document_id:
+                            crs_doc = db.query(CRSDocument).filter(
+                                CRSDocument.id == session.crs_document_id
+                            ).first()
+                            if crs_doc and crs_doc.pattern:
+                                crs_pattern_value = crs_doc.pattern.value
+                        
                         state = {
                             "user_input": content,
                             "conversation_history": history_strings,
@@ -423,7 +437,7 @@ async def websocket_endpoint(
                             "db": db,
                             "message_id": new_message.id,  # Pass message ID for memory linking
                             "user_id": user.id,
-                            "crs_pattern": session.crs_pattern.value if session.crs_pattern else "bakok",
+                            "crs_pattern": crs_pattern_value,
                         }
                         
                         # Invoke graph (using ainvoke if available, otherwise synchronous invoke)

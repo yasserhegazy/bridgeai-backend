@@ -48,7 +48,7 @@ class SessionBase(BaseModel):
 
 class SessionCreate(SessionBase):
     crs_document_id: Optional[int] = None
-    crs_pattern: Optional[CRSPatternEnum] = CRSPatternEnum.babok
+
 
 
 class SessionUpdate(BaseModel):
@@ -63,7 +63,7 @@ class SessionOut(BaseModel):
     crs_document_id: Optional[int] = None
     name: str
     status: SessionStatusEnum
-    crs_pattern: CRSPatternEnum = CRSPatternEnum.babok
+
     started_at: datetime
     ended_at: Optional[datetime]
     messages: List[MessageOut] = []
@@ -79,7 +79,7 @@ class SessionListOut(BaseModel):
     crs_document_id: Optional[int] = None
     name: str
     status: SessionStatusEnum
-    crs_pattern: CRSPatternEnum = CRSPatternEnum.babok
+
     started_at: datetime
     ended_at: Optional[datetime]
     message_count: int

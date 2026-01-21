@@ -37,8 +37,8 @@ def template_filler_node(state: AgentState) -> Dict[str, Any]:
     user_id = state.get("user_id")
     crs_pattern = state.get("crs_pattern")  # Get pattern from state
 
-    # Initialize the template filler
-    filler = LLMTemplateFiller()
+    # Initialize the template filler with pattern
+    filler = LLMTemplateFiller(pattern=crs_pattern)
 
     # Fill the CRS template
     result = filler.fill_template(
