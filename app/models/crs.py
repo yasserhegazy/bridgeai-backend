@@ -19,8 +19,10 @@ class CRSDocument(Base):
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)  # No index - rarely query by creator
     content = Column(Text)  # structured JSON/text
     summary_points = Column(Text)  # main points extracted from chat
+    field_sources = Column(Text, nullable=True)  # JSON mapping fields to sources (explicit_user_input vs llm_inference)
     status = Column(Enum(CRSStatus), default=CRSStatus.draft, index=True)  # CRITICAL: Frequently filtered (4-5 values, moderate selectivity)
     version = Column(Integer, default=1)  # No index - always queried with project_id
+    edit_version = Column(Integer, default=1)  # Optimistic locking version for concurrent updates
     approved_by = Column(Integer, ForeignKey("users.id"), nullable=True)  # No index - rarely queried
     rejection_reason = Column(Text, nullable=True)  # BA feedback when rejecting
     reviewed_at = Column(DateTime(timezone=True), nullable=True)  # When BA reviewed
