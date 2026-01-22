@@ -624,6 +624,7 @@ def read_crs_versions(
             status=crs.status.value,
             pattern=crs.pattern.value if crs.pattern else "babok",
             version=crs.version,
+            edit_version=crs.edit_version,
             content=crs.content,
             summary_points=summary_points,
             created_by=crs.created_by,
