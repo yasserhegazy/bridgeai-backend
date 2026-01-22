@@ -39,6 +39,7 @@ class CRSCreate(BaseModel):
     summary_points: List[str] = Field(default_factory=list)
     allow_partial: bool = Field(default=False, description="Allow creation with incomplete data (draft status)")
     completeness_percentage: Optional[int] = Field(None, description="Completeness percentage for partial CRS")
+    session_id: Optional[int] = Field(None, description="Session ID to link the CRS to")
 
 
 class CRSStatusUpdate(BaseModel):
@@ -130,6 +131,14 @@ def create_crs(
         summary_points=payload.summary_points,
         initial_status=initial_status,
     )
+
+    # Link CRS to session if provided
+    if payload.session_id:
+        from app.models.session_model import SessionModel
+        session = db.query(SessionModel).filter(SessionModel.id == payload.session_id).first()
+        if session and session.project_id == payload.project_id:
+            session.crs_document_id = crs.id
+            db.commit()
 
     # Notify team members - optimized single query
     from app.models.team import TeamMember
