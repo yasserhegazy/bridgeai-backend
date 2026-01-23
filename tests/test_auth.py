@@ -1,6 +1,7 @@
 """
 Tests for authentication endpoints.
 """
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
@@ -19,8 +20,8 @@ class TestUserRegistration:
                 "email": "newclient@test.com",
                 "password": "SecurePassword123!",
                 "full_name": "New Client",
-                "role": "client"
-            }
+                "role": "client",
+            },
         )
         assert response.status_code == 200
         data = response.json()
@@ -29,7 +30,7 @@ class TestUserRegistration:
         assert data["role"] == "client"
         assert "id" in data
         assert "password" not in data
-        
+
         # Verify user is in database
         user = db.query(User).filter(User.email == "newclient@test.com").first()
         assert user is not None
@@ -43,13 +44,13 @@ class TestUserRegistration:
                 "email": "newba@test.com",
                 "password": "SecurePassword123!",
                 "full_name": "New BA",
-                "role": "ba"
-            }
+                "role": "ba",
+            },
         )
         assert response.status_code == 200
         data = response.json()
         assert data["role"] == "ba"
-        
+
         # Verify user is in database
         user = db.query(User).filter(User.email == "newba@test.com").first()
         assert user is not None
@@ -63,8 +64,8 @@ class TestUserRegistration:
                 "email": test_client_user.email,
                 "password": "AnotherPassword123!",
                 "full_name": "Duplicate User",
-                "role": "client"
-            }
+                "role": "client",
+            },
         )
         assert response.status_code == 400
         assert "already registered" in response.json()["detail"].lower()
@@ -75,9 +76,9 @@ class TestUserRegistration:
             "/auth/register",
             json={
                 "email": "incomplete@test.com",
-                "password": "Password123!"
+                "password": "Password123!",
                 # missing full_name and role
-            }
+            },
         )
         assert response.status_code == 422  # Validation error
 
@@ -90,7 +91,7 @@ class TestUserLogin:
         response = client.post(
             "/auth/token",
             data={"username": test_client_user.email, "password": "TestPassword123!"},
-            headers={"Content-Type": "application/x-www-form-urlencoded"}
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
         )
         assert response.status_code == 200
         data = response.json()
@@ -103,7 +104,7 @@ class TestUserLogin:
         response = client.post(
             "/auth/token",
             data={"username": test_ba_user.email, "password": "TestPassword123!"},
-            headers={"Content-Type": "application/x-www-form-urlencoded"}
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
         )
         assert response.status_code == 200
         data = response.json()
@@ -114,7 +115,7 @@ class TestUserLogin:
         response = client.post(
             "/auth/token",
             data={"username": "nonexistent@test.com", "password": "Password123!"},
-            headers={"Content-Type": "application/x-www-form-urlencoded"}
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
         )
         assert response.status_code == 401
         assert "invalid credentials" in response.json()["detail"].lower()
@@ -124,7 +125,7 @@ class TestUserLogin:
         response = client.post(
             "/auth/token",
             data={"username": test_client_user.email, "password": "WrongPassword123!"},
-            headers={"Content-Type": "application/x-www-form-urlencoded"}
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
         )
         assert response.status_code == 401
         assert "invalid credentials" in response.json()["detail"].lower()
@@ -133,7 +134,9 @@ class TestUserLogin:
 class TestGetCurrentUser:
     """Test getting current user information."""
 
-    def test_get_me_authenticated(self, client: TestClient, client_auth_headers: dict, test_client_user: User):
+    def test_get_me_authenticated(
+        self, client: TestClient, client_auth_headers: dict, test_client_user: User
+    ):
         """Test getting current user info with valid token."""
         response = client.get("/auth/me", headers=client_auth_headers)
         assert response.status_code == 200
@@ -151,8 +154,7 @@ class TestGetCurrentUser:
     def test_get_me_invalid_token(self, client: TestClient):
         """Test getting current user info with invalid token fails."""
         response = client.get(
-            "/auth/me",
-            headers={"Authorization": "Bearer invalid_token"}
+            "/auth/me", headers={"Authorization": "Bearer invalid_token"}
         )
         assert response.status_code == 401
 
@@ -161,15 +163,11 @@ class TestGetUserById:
     """Test getting user by ID."""
 
     def test_get_user_by_id_success(
-        self, 
-        client: TestClient, 
-        client_auth_headers: dict, 
-        test_ba_user: User
+        self, client: TestClient, client_auth_headers: dict, test_ba_user: User
     ):
         """Test getting another user's info by ID."""
         response = client.get(
-            f"/auth/users/{test_ba_user.id}",
-            headers=client_auth_headers
+            f"/auth/users/{test_ba_user.id}", headers=client_auth_headers
         )
         assert response.status_code == 200
         data = response.json()
@@ -177,16 +175,17 @@ class TestGetUserById:
         assert data["email"] == test_ba_user.email
         assert data["full_name"] == test_ba_user.full_name
 
-    def test_get_user_by_id_not_found(self, client: TestClient, client_auth_headers: dict):
+    def test_get_user_by_id_not_found(
+        self, client: TestClient, client_auth_headers: dict
+    ):
         """Test getting non-existent user returns 404."""
-        response = client.get(
-            "/auth/users/99999",
-            headers=client_auth_headers
-        )
+        response = client.get("/auth/users/99999", headers=client_auth_headers)
         assert response.status_code == 404
         assert "not found" in response.json()["detail"].lower()
 
-    def test_get_user_by_id_unauthenticated(self, client: TestClient, test_ba_user: User):
+    def test_get_user_by_id_unauthenticated(
+        self, client: TestClient, test_ba_user: User
+    ):
         """Test getting user by ID without authentication fails."""
         response = client.get(f"/auth/users/{test_ba_user.id}")
         assert response.status_code == 401

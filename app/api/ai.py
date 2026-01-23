@@ -1,8 +1,10 @@
+from typing import Any, Dict, List, Optional
+
 from fastapi import APIRouter
 from pydantic import BaseModel
-from typing import List, Dict, Any, Optional
-from app.ai.state import AgentState
+
 from app.ai.graph import create_graph
+from app.ai.state import AgentState
 
 router = APIRouter()
 graph = create_graph()
@@ -30,7 +32,7 @@ def analyze_requirements(req: RequirementInput):
         state: AgentState = {
             "user_input": req.user_input,
             "conversation_history": req.conversation_history,
-            "extracted_fields": req.extracted_fields
+            "extracted_fields": req.extracted_fields,
         }
 
         result = graph.invoke(state)
@@ -42,13 +44,14 @@ def analyze_requirements(req: RequirementInput):
             needs_clarification=result.get("needs_clarification", False),
             clarity_score=result.get("clarity_score"),
             quality_summary=result.get("quality_summary"),
-            last_node=result.get("last_node")
+            last_node=result.get("last_node"),
         )
     except Exception as e:
         import logging
+
         logger = logging.getLogger(__name__)
         logger.error(f"Error analyzing requirements: {str(e)}", exc_info=True)
-        
+
         # Return a graceful error response
         return ClarificationResponse(
             output=f"Sorry, there was an error analyzing your requirements: {str(e)}",
@@ -57,5 +60,5 @@ def analyze_requirements(req: RequirementInput):
             needs_clarification=False,
             clarity_score=0,
             quality_summary=f"Error: {str(e)}",
-            last_node="error"
+            last_node="error",
         )

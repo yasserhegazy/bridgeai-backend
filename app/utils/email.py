@@ -1,13 +1,16 @@
 import smtplib
-from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+
 from app.core.config import settings
 
 
-def send_email(to_email: str, subject: str, html_content: str, text_content: str = None):
+def send_email(
+    to_email: str, subject: str, html_content: str, text_content: str = None
+):
     """
     Send an email via SMTP.
-    
+
     Args:
         to_email: Recipient email address
         subject: Email subject
@@ -15,20 +18,20 @@ def send_email(to_email: str, subject: str, html_content: str, text_content: str
         text_content: Plain text content (optional, fallback)
     """
     # Create message
-    msg = MIMEMultipart('alternative')
-    msg['Subject'] = subject
-    msg['From'] = f"{settings.SMTP_FROM_NAME} <{settings.SMTP_FROM_EMAIL}>"
-    msg['To'] = to_email
-    
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = f"{settings.SMTP_FROM_NAME} <{settings.SMTP_FROM_EMAIL}>"
+    msg["To"] = to_email
+
     # Attach text content
     if text_content:
-        part1 = MIMEText(text_content, 'plain')
+        part1 = MIMEText(text_content, "plain")
         msg.attach(part1)
-    
+
     # Attach HTML content
-    part2 = MIMEText(html_content, 'html')
+    part2 = MIMEText(html_content, "html")
     msg.attach(part2)
-    
+
     # Send email
     try:
         with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
@@ -44,14 +47,11 @@ def send_email(to_email: str, subject: str, html_content: str, text_content: str
 
 
 def send_invitation_email(
-    to_email: str,
-    invite_link: str,
-    team_name: str,
-    inviter_name: str = None
+    to_email: str, invite_link: str, team_name: str, inviter_name: str = None
 ):
     """
     Send a team invitation email.
-    
+
     Args:
         to_email: Recipient email address
         invite_link: Full invitation acceptance link
@@ -59,7 +59,7 @@ def send_invitation_email(
         inviter_name: Name of the person who sent the invitation
     """
     subject = f"You've been invited to join {team_name} on BridgeAI"
-    
+
     # HTML content
     html_content = f"""
     <!DOCTYPE html>
@@ -133,7 +133,7 @@ def send_invitation_email(
     </body>
     </html>
     """
-    
+
     # Plain text content (fallback)
     text_content = f"""
     You've been invited to join {team_name} on BridgeAI!
@@ -147,5 +147,5 @@ def send_invitation_email(
     
     © 2025 BridgeAI. All rights reserved.
     """
-    
+
     send_email(to_email, subject, html_content, text_content)

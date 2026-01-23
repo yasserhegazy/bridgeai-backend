@@ -1,4 +1,5 @@
-from typing import TypedDict, Optional, List, Dict, Any
+from typing import Any, Dict, List, Optional, TypedDict
+
 
 class AgentState(TypedDict, total=False):
     user_input: str
@@ -33,7 +34,7 @@ class AgentState(TypedDict, total=False):
     # Workflow control
     last_node: Optional[str]
     next_action: Optional[str]
-    
+
     # Memory and context
     project_id: Optional[int]
     db: Optional[Any]  # SQLAlchemy Session for memory queries

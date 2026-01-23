@@ -4,13 +4,13 @@ CRS persistence and indexing helpers.
 
 import json
 import logging
-from typing import List, Optional
 from datetime import datetime
+from typing import List, Optional
 
 from sqlalchemy.orm import Session
 
-from app.models.crs import CRSDocument, CRSStatus, CRSPattern
 from app.ai.memory_service import create_memory
+from app.models.crs import CRSDocument, CRSStatus
 
 logger = logging.getLogger(__name__)
 
@@ -26,19 +26,19 @@ def persist_crs_document(
     field_sources: Optional[dict] = None,
     store_embedding: bool = True,
     force_draft: bool = False,
-    initial_status: Optional[CRSStatus] = None
+    initial_status: Optional[CRSStatus] = None,
 ) -> CRSDocument:
     """
     Persist a CRS document and optionally store it in the semantic memory index.
     Embedding storage is optional to allow tests to run without Chroma.
-    
+
     Auto-increments the version number based on existing CRS documents for the project.
     Pattern defaults to 'babok' if not specified.
     initial_status: Optional status to set (defaults to DRAFT)
     """
     summary_payload = summary_points or []
     summary_as_text = json.dumps(summary_payload)
-    
+
     field_sources_text = json.dumps(field_sources) if field_sources else None
 
     # Calculate the next version number for this project
@@ -98,11 +98,11 @@ def get_latest_crs(db: Session, *, project_id: int) -> Optional[CRSDocument]:
 def get_crs_versions(db: Session, *, project_id: int) -> List[CRSDocument]:
     """
     Return all CRS versions for a project, ordered by version descending.
-    
+
     Args:
         db: Database session
         project_id: Project ID to fetch CRS versions for
-        
+
     Returns:
         List of CRSDocument objects ordered by version (newest first)
     """
@@ -125,7 +125,7 @@ def update_crs_status(
 ) -> CRSDocument:
     """
     Update the status of a CRS document with optimistic locking support.
-    
+
     Args:
         db: Database session
         crs_id: ID of the CRS document to update
@@ -133,17 +133,17 @@ def update_crs_status(
         approved_by: User ID of the approver (set when status is 'approved')
         rejection_reason: Reason for rejection (set when status is 'rejected')
         expected_version: Expected edit_version for optimistic locking (optional)
-        
+
     Returns:
         Updated CRSDocument object
-        
+
     Raises:
         ValueError: If CRS not found or version mismatch (optimistic locking conflict)
     """
     crs = db.query(CRSDocument).filter(CRSDocument.id == crs_id).first()
     if not crs:
         raise ValueError(f"CRS document with id={crs_id} not found")
-    
+
     # Optimistic locking check
     if expected_version is not None and crs.edit_version != expected_version:
         raise ValueError(
@@ -155,10 +155,10 @@ def update_crs_status(
     crs.status = new_status
     crs.reviewed_at = datetime.utcnow()
     crs.edit_version += 1  # Increment version for next update
-    
+
     if approved_by is not None:
         crs.approved_by = approved_by
-    
+
     if rejection_reason is not None:
         crs.rejection_reason = rejection_reason
 
@@ -177,33 +177,33 @@ def get_crs_by_id(db: Session, *, crs_id: int) -> Optional[CRSDocument]:
 async def generate_preview_crs(db: Session, *, session_id: int, user_id: int) -> dict:
     """
     Generate a preview CRS from the current conversation state without persisting it.
-    
+
     This allows users to see their progress even when the CRS is incomplete.
     Uses the template filler in non-strict mode to generate partial CRS.
-    
+
     Args:
         db: Database session
         session_id: Chat session ID
         user_id: User ID making the request
-        
+
     Returns:
         dict: CRS preview data with completeness metadata
-        
+
     Raises:
         ValueError: If session not found or user doesn't have access
     """
-    from app.models.session_model import SessionModel
-    from app.models.message import Message, SenderType
     from app.ai.nodes.template_filler.llm_template_filler import LLMTemplateFiller
-    
+    from app.models.message import Message, SenderType
+    from app.models.session_model import SessionModel
+
     # Get session and verify access
     session = db.query(SessionModel).filter(SessionModel.id == session_id).first()
     if not session:
         raise ValueError(f"Session with id={session_id} not found")
-    
+
     if session.user_id != user_id:
         raise ValueError("User does not have access to this session")
-    
+
     # Get conversation history
     messages = (
         db.query(Message)
@@ -211,46 +211,49 @@ async def generate_preview_crs(db: Session, *, session_id: int, user_id: int) ->
         .order_by(Message.timestamp.asc())
         .all()
     )
-    
+
     if not messages:
         raise ValueError("No messages found in session")
-    
+
     # Format conversation history
     conversation_history = []
     for msg in messages:
         role = "user" if msg.sender_type == SenderType.client else "assistant"
-        conversation_history.append({
-            "role": role,
-            "content": msg.content
-        })
-    
+        conversation_history.append({"role": role, "content": msg.content})
+
     # Get the last user message
     last_user_message = next(
-        (msg.content for msg in reversed(messages) if msg.sender_type == SenderType.client),
-        ""
+        (
+            msg.content
+            for msg in reversed(messages)
+            if msg.sender_type == SenderType.client
+        ),
+        "",
     )
-    
+
     # Initialize template filler
     template_filler = LLMTemplateFiller()
-    
+
     # Generate CRS with non-strict mode (allows partial completion)
     result = template_filler.fill_template(
         user_input=last_user_message,
         conversation_history=conversation_history,
-        extracted_fields={}
+        extracted_fields={},
     )
-    
+
     # Check if any content exists (non-strict completeness)
+
     from app.ai.nodes.template_filler.llm_template_filler import CRSTemplate
-    import json
-    
+
     template_dict = result.get("crs_template", {})
     template = CRSTemplate(**template_dict)
     has_content = template_filler._check_completeness(template, strict_mode=False)
-    
+
     if not has_content:
-        raise ValueError("No CRS content available yet. Please provide more information.")
-    
+        raise ValueError(
+            "No CRS content available yet. Please provide more information."
+        )
+
     return {
         "content": result["crs_content"],
         "summary_points": result["summary_points"],
@@ -263,5 +266,5 @@ async def generate_preview_crs(db: Session, *, session_id: int, user_id: int) ->
         "weak_fields": result.get("weak_fields", []),
         "field_sources": result.get("field_sources", {}),
         "project_id": session.project_id,
-        "session_id": session_id
+        "session_id": session_id,
     }

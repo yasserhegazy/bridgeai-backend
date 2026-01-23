@@ -2,12 +2,14 @@
 Notification service for CRS events.
 """
 
-from typing import Optional, List
+from typing import List, Optional
+
 from sqlalchemy.orm import Session
-from app.models.notification import Notification, NotificationType
-from app.models.user import User
+
 from app.models.crs import CRSDocument
+from app.models.notification import Notification
 from app.models.project import Project
+from app.models.user import User
 from app.utils.email import send_email
 
 
@@ -18,7 +20,7 @@ def create_notification(
     reference_id: int,
     title: str,
     message: str,
-    meta_data: Optional[dict] = None
+    meta_data: Optional[dict] = None,
 ) -> Notification:
     """Create an in-app notification."""
     notification = Notification(
@@ -27,7 +29,7 @@ def create_notification(
         reference_id=reference_id,
         title=title,
         message=message,
-        meta_data=meta_data or {}
+        meta_data=meta_data or {},
     )
     db.add(notification)
     db.commit()
@@ -41,7 +43,7 @@ def send_crs_notification_email(
     event_type: str,
     crs_id: int,
     project_name: str,
-    details: str
+    details: str,
 ):
     """Send CRS notification email."""
     html_content = f"""
@@ -85,9 +87,11 @@ def send_crs_notification_email(
     </body>
     </html>
     """
-    
-    text_content = f"{event_type}\n\nProject: {project_name}\nCRS ID: #{crs_id}\n\n{details}"
-    
+
+    text_content = (
+        f"{event_type}\n\nProject: {project_name}\nCRS ID: #{crs_id}\n\n{details}"
+    )
+
     send_email(to_email, subject, html_content, text_content)
 
 
@@ -96,14 +100,14 @@ def notify_crs_created(
     crs: CRSDocument,
     project: Project,
     notify_users: List[int],
-    send_email_notification: bool = True
+    send_email_notification: bool = True,
 ):
     """Notify users when a CRS is created."""
     for user_id in notify_users:
         user = db.query(User).filter(User.id == user_id).first()
         if not user:
             continue
-            
+
         create_notification(
             db=db,
             user_id=user_id,
@@ -111,9 +115,14 @@ def notify_crs_created(
             reference_id=crs.id,
             title="New CRS Document Created",
             message=f"A new CRS document has been created for project '{project.name}'",
-            meta_data={"project_id": project.id, "project_name": project.name, "crs_id": crs.id, "team_id": project.team_id}
+            meta_data={
+                "project_id": project.id,
+                "project_name": project.name,
+                "crs_id": crs.id,
+                "team_id": project.team_id,
+            },
         )
-        
+
         if send_email_notification:
             send_crs_notification_email(
                 to_email=user.email,
@@ -121,7 +130,7 @@ def notify_crs_created(
                 event_type="New CRS Document Created",
                 crs_id=crs.id,
                 project_name=project.name,
-                details=f"A new CRS document (version {crs.version}) has been created for your project."
+                details=f"A new CRS document (version {crs.version}) has been created for your project.",
             )
 
 
@@ -130,14 +139,14 @@ def notify_crs_updated(
     crs: CRSDocument,
     project: Project,
     notify_users: List[int],
-    send_email_notification: bool = True
+    send_email_notification: bool = True,
 ):
     """Notify users when a CRS is updated."""
     for user_id in notify_users:
         user = db.query(User).filter(User.id == user_id).first()
         if not user:
             continue
-            
+
         create_notification(
             db=db,
             user_id=user_id,
@@ -145,9 +154,14 @@ def notify_crs_updated(
             reference_id=crs.id,
             title="CRS Document Updated",
             message=f"CRS document for project '{project.name}' has been updated",
-            meta_data={"project_id": project.id, "project_name": project.name, "crs_id": crs.id, "team_id": project.team_id}
+            meta_data={
+                "project_id": project.id,
+                "project_name": project.name,
+                "crs_id": crs.id,
+                "team_id": project.team_id,
+            },
         )
-        
+
         if send_email_notification:
             send_crs_notification_email(
                 to_email=user.email,
@@ -155,7 +169,7 @@ def notify_crs_updated(
                 event_type="CRS Document Updated",
                 crs_id=crs.id,
                 project_name=project.name,
-                details=f"The CRS document (version {crs.version}) has been updated."
+                details=f"The CRS document (version {crs.version}) has been updated.",
             )
 
 
@@ -166,14 +180,14 @@ def notify_crs_status_changed(
     old_status: str,
     new_status: str,
     notify_users: List[int],
-    send_email_notification: bool = True
+    send_email_notification: bool = True,
 ):
     """Notify users when CRS status changes."""
     for user_id in notify_users:
         user = db.query(User).filter(User.id == user_id).first()
         if not user:
             continue
-            
+
         create_notification(
             db=db,
             user_id=user_id,
@@ -181,9 +195,15 @@ def notify_crs_status_changed(
             reference_id=crs.id,
             title="CRS Status Changed",
             message=f"CRS status changed from '{old_status}' to '{new_status}' for project '{project.name}'",
-            meta_data={"project_id": project.id, "project_name": project.name, "crs_id": crs.id, "status": new_status, "team_id": project.team_id}
+            meta_data={
+                "project_id": project.id,
+                "project_name": project.name,
+                "crs_id": crs.id,
+                "status": new_status,
+                "team_id": project.team_id,
+            },
         )
-        
+
         if send_email_notification:
             send_crs_notification_email(
                 to_email=user.email,
@@ -191,7 +211,7 @@ def notify_crs_status_changed(
                 event_type="CRS Status Changed",
                 crs_id=crs.id,
                 project_name=project.name,
-                details=f"Status changed from '{old_status}' to '{new_status}'."
+                details=f"Status changed from '{old_status}' to '{new_status}'.",
             )
 
 
@@ -201,17 +221,17 @@ def notify_crs_comment_added(
     project: Project,
     comment_author: User,
     notify_users: List[int],
-    send_email_notification: bool = True
+    send_email_notification: bool = True,
 ):
     """Notify users when a comment is added to CRS."""
     for user_id in notify_users:
         if user_id == comment_author.id:
             continue
-            
+
         user = db.query(User).filter(User.id == user_id).first()
         if not user:
             continue
-            
+
         create_notification(
             db=db,
             user_id=user_id,
@@ -219,9 +239,14 @@ def notify_crs_comment_added(
             reference_id=crs.id,
             title="New Comment on CRS",
             message=f"{comment_author.full_name} added a comment on CRS for project '{project.name}'",
-            meta_data={"project_id": project.id, "project_name": project.name, "crs_id": crs.id, "team_id": project.team_id}
+            meta_data={
+                "project_id": project.id,
+                "project_name": project.name,
+                "crs_id": crs.id,
+                "team_id": project.team_id,
+            },
         )
-        
+
         if send_email_notification:
             send_crs_notification_email(
                 to_email=user.email,
@@ -229,7 +254,7 @@ def notify_crs_comment_added(
                 event_type="New Comment Added",
                 crs_id=crs.id,
                 project_name=project.name,
-                details=f"{comment_author.full_name} added a comment to the CRS document."
+                details=f"{comment_author.full_name} added a comment to the CRS document.",
             )
 
 
@@ -239,14 +264,14 @@ def notify_crs_approved(
     project: Project,
     approver: User,
     notify_users: List[int],
-    send_email_notification: bool = True
+    send_email_notification: bool = True,
 ):
     """Notify users when CRS is approved."""
     for user_id in notify_users:
         user = db.query(User).filter(User.id == user_id).first()
         if not user:
             continue
-            
+
         create_notification(
             db=db,
             user_id=user_id,
@@ -254,9 +279,15 @@ def notify_crs_approved(
             reference_id=crs.id,
             title="CRS Document Approved",
             message=f"CRS for project '{project.name}' has been approved by {approver.full_name}",
-            meta_data={"project_id": project.id, "project_name": project.name, "crs_id": crs.id, "status": "approved", "team_id": project.team_id}
+            meta_data={
+                "project_id": project.id,
+                "project_name": project.name,
+                "crs_id": crs.id,
+                "status": "approved",
+                "team_id": project.team_id,
+            },
         )
-        
+
         if send_email_notification:
             send_crs_notification_email(
                 to_email=user.email,
@@ -264,7 +295,7 @@ def notify_crs_approved(
                 event_type="CRS Document Approved",
                 crs_id=crs.id,
                 project_name=project.name,
-                details=f"Your CRS document has been approved by {approver.full_name}."
+                details=f"Your CRS document has been approved by {approver.full_name}.",
             )
 
 
@@ -274,14 +305,14 @@ def notify_crs_rejected(
     project: Project,
     rejector: User,
     notify_users: List[int],
-    send_email_notification: bool = True
+    send_email_notification: bool = True,
 ):
     """Notify users when CRS is rejected."""
     for user_id in notify_users:
         user = db.query(User).filter(User.id == user_id).first()
         if not user:
             continue
-            
+
         create_notification(
             db=db,
             user_id=user_id,
@@ -289,9 +320,15 @@ def notify_crs_rejected(
             reference_id=crs.id,
             title="CRS Document Rejected",
             message=f"CRS for project '{project.name}' has been rejected by {rejector.full_name}",
-            meta_data={"project_id": project.id, "project_name": project.name, "crs_id": crs.id, "status": "rejected", "team_id": project.team_id}
+            meta_data={
+                "project_id": project.id,
+                "project_name": project.name,
+                "crs_id": crs.id,
+                "status": "rejected",
+                "team_id": project.team_id,
+            },
         )
-        
+
         if send_email_notification:
             send_crs_notification_email(
                 to_email=user.email,
@@ -299,7 +336,7 @@ def notify_crs_rejected(
                 event_type="CRS Document Rejected",
                 crs_id=crs.id,
                 project_name=project.name,
-                details=f"Your CRS document has been rejected by {rejector.full_name}. Please review the feedback."
+                details=f"Your CRS document has been rejected by {rejector.full_name}. Please review the feedback.",
             )
 
 
@@ -308,13 +345,13 @@ def notify_crs_review_assignment(
     crs: CRSDocument,
     project: Project,
     reviewer_id: int,
-    send_email_notification: bool = True
+    send_email_notification: bool = True,
 ):
     """Notify user when assigned to review a CRS."""
     user = db.query(User).filter(User.id == reviewer_id).first()
     if not user:
         return
-        
+
     create_notification(
         db=db,
         user_id=reviewer_id,
@@ -322,9 +359,14 @@ def notify_crs_review_assignment(
         reference_id=crs.id,
         title="CRS Review Assignment",
         message=f"You have been assigned to review CRS for project '{project.name}'",
-        meta_data={"project_id": project.id, "project_name": project.name, "crs_id": crs.id, "team_id": project.team_id}
+        meta_data={
+            "project_id": project.id,
+            "project_name": project.name,
+            "crs_id": crs.id,
+            "team_id": project.team_id,
+        },
     )
-    
+
     if send_email_notification:
         send_crs_notification_email(
             to_email=user.email,
@@ -332,5 +374,5 @@ def notify_crs_review_assignment(
             event_type="CRS Review Assignment",
             crs_id=crs.id,
             project_name=project.name,
-            details="You have been assigned to review this CRS document. Please review and provide your feedback."
+            details="You have been assigned to review this CRS document. Please review and provide your feedback.",
         )

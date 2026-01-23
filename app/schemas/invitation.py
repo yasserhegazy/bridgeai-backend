@@ -1,23 +1,26 @@
-from pydantic import BaseModel, EmailStr, Field, validator
 from datetime import datetime
 from typing import Optional
+
+from pydantic import BaseModel, EmailStr, Field, validator
 
 
 class InvitationCreate(BaseModel):
     """Schema for creating a team invitation."""
+
     email: EmailStr = Field(..., max_length=254)
     role: str = Field(..., pattern="^(owner|admin|member|viewer)$")
-    
-    @validator('email')
+
+    @validator("email")
     def validate_email(cls, v):
         v = v.lower().strip()
         if len(v) > 254:
-            raise ValueError('Email address too long')
+            raise ValueError("Email address too long")
         return v
 
 
 class InvitationOut(BaseModel):
     """Schema for invitation details."""
+
     id: int
     email: str
     role: str
@@ -34,6 +37,7 @@ class InvitationOut(BaseModel):
 
 class InvitationPublicOut(BaseModel):
     """Public schema for invitation (without sensitive data)."""
+
     email: str
     role: str
     team_id: int
@@ -51,6 +55,7 @@ class InvitationPublicOut(BaseModel):
 
 class InvitationResponse(BaseModel):
     """Response after creating invitation."""
+
     invite_link: str
     status: str
     invitation: InvitationOut
@@ -58,6 +63,7 @@ class InvitationResponse(BaseModel):
 
 class InvitationAcceptResponse(BaseModel):
     """Response after accepting invitation."""
+
     message: str
     team_id: int
     role: str

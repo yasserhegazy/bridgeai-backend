@@ -1,9 +1,9 @@
-from typing import Optional, List, Dict, Any
 import csv
+import html as html_module
 import io
 import json
-
 from datetime import datetime
+from typing import Any, Dict, List, Optional
 
 try:
     import markdown as _md
@@ -17,7 +17,7 @@ def markdown_to_html(markdown_text: str) -> str:
     """
     if markdown_text is None:
         markdown_text = ""
-    
+
     # Convert markdown to HTML
     if _md:
         html_content = _md.markdown(markdown_text)
@@ -25,7 +25,7 @@ def markdown_to_html(markdown_text: str) -> str:
         # Fallback: escape and wrap in <pre>
         escaped = html_module.escape(markdown_text)
         html_content = f"<pre>{escaped}</pre>"
-    
+
     # Wrap with proper styling
     styled_html = f"""
     <html>
@@ -125,26 +125,26 @@ def markdown_to_html(markdown_text: str) -> str:
 
 def crs_to_professional_html(content: str, project_name: str = "Project") -> str:
     """Convert CRS Markdown content to a professional, corporate-style HTML document.
-    
+
     Args:
         content: Markdown-formatted CRS content
         project_name: Name of the project for the document header
-        
+
     Returns:
         HTML string with professional formatting suitable for PDF export
     """
     if content is None:
         content = ""
-    
+
     # Convert markdown to HTML
     if _md:
         html_content = _md.markdown(content)
     else:
         escaped = html_module.escape(content)
         html_content = f"<pre>{escaped}</pre>"
-    
+
     current_date = datetime.now().strftime("%B %d, %Y")
-    
+
     # Professional corporate styling for CRS documents - simplified for weasyprint compatibility
     styled_html = f"""<!DOCTYPE html>
 <html>
@@ -377,8 +377,9 @@ def html_to_pdf_bytes(html: str) -> bytes:
     if html is None:
         html = ""
     try:
-        from xhtml2pdf import pisa
         from io import BytesIO
+
+        from xhtml2pdf import pisa
     except Exception as e:
         raise RuntimeError("PDF export requires xhtml2pdf to be installed") from e
 
@@ -490,19 +491,15 @@ def html_to_pdf_bytes(html: str) -> bytes:
     {html}
 </body>
 </html>"""
-        
+
         pdf_buffer = BytesIO()
-        
+
         # Convert HTML to PDF
-        status = pisa.CreatePDF(
-            full_html,
-            pdf_buffer,
-            encoding='UTF-8'
-        )
-        
+        status = pisa.CreatePDF(full_html, pdf_buffer, encoding="UTF-8")
+
         if status.err:
             raise RuntimeError(f"PDF generation failed: {status.err}")
-        
+
         pdf_buffer.seek(0)
         return pdf_buffer.getvalue()
     except Exception as e:
@@ -510,67 +507,105 @@ def html_to_pdf_bytes(html: str) -> bytes:
 
 
 CSV_COLUMNS = [
-    "artifact_id", "type", "label", "parent_id", "order_index", "title",
-    "content", "doc_id", "doc_version", "doc_section_path", "req_type",
-    "priority", "stakeholder", "acceptance_criteria", "status", "source",
-    "related_artifact_id", "rationale", "verification_method", "risk_level",
-    "complexity", "created_by", "created_date", "last_modified", "in_scope"
+    "artifact_id",
+    "type",
+    "label",
+    "parent_id",
+    "order_index",
+    "title",
+    "content",
+    "doc_id",
+    "doc_version",
+    "doc_section_path",
+    "req_type",
+    "priority",
+    "stakeholder",
+    "acceptance_criteria",
+    "status",
+    "source",
+    "related_artifact_id",
+    "rationale",
+    "verification_method",
+    "risk_level",
+    "complexity",
+    "created_by",
+    "created_date",
+    "last_modified",
+    "in_scope",
 ]
 
 
-def crs_to_csv_data(crs_json: Dict[str, Any], doc_id: int, doc_version: int, created_by: str, created_date: str, requirements_only: bool = False) -> List[Dict[str, Any]]:
+def crs_to_csv_data(
+    crs_json: Dict[str, Any],
+    doc_id: int,
+    doc_version: int,
+    created_by: str,
+    created_date: str,
+    requirements_only: bool = False,
+) -> List[Dict[str, Any]]:
     """
     Convert CRS JSON structure to a flat list of artifact rows for CSV export.
     """
     rows = []
     order_index = 1
-    
+
     # Helper to create a base row
     def create_row(**kwargs):
         row = {col: "" for col in CSV_COLUMNS}
-        row.update({
-            "doc_id": doc_id,
-            "doc_version": doc_version,
-            "created_by": created_by,
-            "created_date": created_date,
-            "in_scope": "True"
-        })
+        row.update(
+            {
+                "doc_id": doc_id,
+                "doc_version": doc_version,
+                "created_by": created_by,
+                "created_date": created_date,
+                "in_scope": "True",
+            }
+        )
         row.update(kwargs)
         return row
 
     # 1. Project Info (Header + Text artifacts)
     project_title = crs_json.get("project_title", "Untitled Project")
     root_id = "ROOT"
-    
+
     # Root Node (Project Title)
-    rows.append(create_row(
-        artifact_id=root_id,
-        type="header",
-        title=project_title,
-        order_index=order_index,
-        content=crs_json.get("project_description", "")
-    ))
+    rows.append(
+        create_row(
+            artifact_id=root_id,
+            type="header",
+            title=project_title,
+            order_index=order_index,
+            content=crs_json.get("project_description", ""),
+        )
+    )
     order_index += 1
 
     # Helper for sections
-    def add_section(section_title: str, items: List[Any], item_type: str = "text", req_type: str = ""):
+    def add_section(
+        section_title: str,
+        items: List[Any],
+        item_type: str = "text",
+        req_type: str = "",
+    ):
         nonlocal order_index
         # Iterate even if items is empty? No, usually skip empty sections
         if not items:
             return
 
         section_id = f"SEC-{order_index}"
-        rows.append(create_row(
-            artifact_id=section_id,
-            parent_id=root_id,
-            type="header",
-            title=section_title,
-            order_index=order_index,
-            doc_section_path=f"/{project_title}/{section_title}"
-        ))
+        rows.append(
+            create_row(
+                artifact_id=section_id,
+                parent_id=root_id,
+                type="header",
+                title=section_title,
+                order_index=order_index,
+                doc_section_path=f"/{project_title}/{section_title}",
+            )
+        )
         # parent_order = order_index # Unused
         order_index += 1
-        
+
         for i, item in enumerate(items, 1):
             item_id = f"{section_id}-{i}"
             row_data = {
@@ -580,7 +615,7 @@ def crs_to_csv_data(crs_json: Dict[str, Any], doc_id: int, doc_version: int, cre
                 "doc_section_path": f"/{project_title}/{section_title}",
                 "type": item_type,
             }
-            
+
             if isinstance(item, str):
                 row_data["content"] = item
                 if req_type:
@@ -592,31 +627,58 @@ def crs_to_csv_data(crs_json: Dict[str, Any], doc_id: int, doc_version: int, cre
                 row_data["content"] = item.get("description", "")
                 row_data["priority"] = item.get("priority", "")
                 row_data["req_type"] = req_type or "functional"
-                
-                if "verification" in item: row_data["verification_method"] = item["verification"]
-                if "complexity" in item: row_data["complexity"] = item["complexity"]
-                
+
+                if "verification" in item:
+                    row_data["verification_method"] = item["verification"]
+                if "complexity" in item:
+                    row_data["complexity"] = item["complexity"]
+
             rows.append(create_row(**row_data))
             order_index += 1
 
     # Map sections
     # Objectives
-    add_section("Objectives", crs_json.get("project_objectives", []), item_type="req", req_type="objective")
-    
+    add_section(
+        "Objectives",
+        crs_json.get("project_objectives", []),
+        item_type="req",
+        req_type="objective",
+    )
+
     # Target Users
     add_section("Target Users", crs_json.get("target_users", []), item_type="text")
-    
+
     # Stakeholders
     add_section("Stakeholders", crs_json.get("stakeholders", []), item_type="text")
 
     # Functional Requirements
-    add_section("Functional Requirements", crs_json.get("functional_requirements", []), item_type="req", req_type="functional")
+    add_section(
+        "Functional Requirements",
+        crs_json.get("functional_requirements", []),
+        item_type="req",
+        req_type="functional",
+    )
 
     # Non-Functional Requirements
-    add_section("Performance Requirements", crs_json.get("performance_requirements", []), item_type="req", req_type="performance")
-    add_section("Security Requirements", crs_json.get("security_requirements", []), item_type="req", req_type="security")
-    add_section("Scalability Requirements", crs_json.get("scalability_requirements", []), item_type="req", req_type="scalability")
-    
+    add_section(
+        "Performance Requirements",
+        crs_json.get("performance_requirements", []),
+        item_type="req",
+        req_type="performance",
+    )
+    add_section(
+        "Security Requirements",
+        crs_json.get("security_requirements", []),
+        item_type="req",
+        req_type="security",
+    )
+    add_section(
+        "Scalability Requirements",
+        crs_json.get("scalability_requirements", []),
+        item_type="req",
+        req_type="scalability",
+    )
+
     # Technical
     tech_stack = crs_json.get("technology_stack", {})
     if tech_stack:
@@ -625,22 +687,34 @@ def crs_to_csv_data(crs_json: Dict[str, Any], doc_id: int, doc_version: int, cre
             if isinstance(techs, list):
                 tech_items.append(f"{category.capitalize()}: {', '.join(techs)}")
             else:
-                 tech_items.append(f"{category.capitalize()}: {techs}")
+                tech_items.append(f"{category.capitalize()}: {techs}")
         add_section("Technology Stack", tech_items, item_type="text")
 
     add_section("Integrations", crs_json.get("integrations", []), item_type="text")
-    
+
     # Constraints
     constraints = []
-    if crs_json.get("budget_constraints"): constraints.append(f"Budget: {crs_json['budget_constraints']}")
-    if crs_json.get("timeline_constraints"): constraints.append(f"Timeline: {crs_json['timeline_constraints']}")
+    if crs_json.get("budget_constraints"):
+        constraints.append(f"Budget: {crs_json['budget_constraints']}")
+    if crs_json.get("timeline_constraints"):
+        constraints.append(f"Timeline: {crs_json['timeline_constraints']}")
     constraints.extend(crs_json.get("technical_constraints", []))
     add_section("Constraints", constraints, item_type="constraint")
 
     # Success Criteria
-    add_section("Success Metrics", crs_json.get("success_metrics", []), item_type="req", req_type="success_metric")
-    add_section("Acceptance Criteria", crs_json.get("acceptance_criteria", []), item_type="req", req_type="acceptance_criterion")
-    
+    add_section(
+        "Success Metrics",
+        crs_json.get("success_metrics", []),
+        item_type="req",
+        req_type="success_metric",
+    )
+    add_section(
+        "Acceptance Criteria",
+        crs_json.get("acceptance_criteria", []),
+        item_type="req",
+        req_type="acceptance_criterion",
+    )
+
     # Others
     add_section("Assumptions", crs_json.get("assumptions", []), item_type="note")
     add_section("Risks", crs_json.get("risks", []), item_type="note")

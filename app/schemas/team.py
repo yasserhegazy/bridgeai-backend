@@ -1,14 +1,14 @@
-from pydantic import BaseModel, root_validator, validator, Field
-from typing import Optional, List, Any, Dict
+import re
 from datetime import datetime
 from enum import Enum
-from fastapi import HTTPException, status
-import re
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, Field, root_validator, validator
 
 
 class TeamRole(str, Enum):
     owner = "owner"
-    admin = "admin" 
+    admin = "admin"
     member = "member"
     viewer = "viewer"
 
@@ -25,7 +25,7 @@ class UserInfo(BaseModel):
     full_name: str
     email: str
     role: str
-    
+
     class Config:
         from_attributes = True
 
@@ -34,24 +34,26 @@ class UserInfo(BaseModel):
 class TeamCreate(BaseModel):
     name: str = Field(..., min_length=1, max_length=100)
     description: Optional[str] = Field(None, max_length=1000)
-    
-    @validator('name')
+
+    @validator("name")
     def validate_name(cls, v):
         v = v.strip()
         if not v:
-            raise ValueError('Team name cannot be empty')
-        if not re.match(r'^[a-zA-Z0-9\s\-_]+$', v):
-            raise ValueError('Team name can only contain letters, numbers, spaces, hyphens, and underscores')
+            raise ValueError("Team name cannot be empty")
+        if not re.match(r"^[a-zA-Z0-9\s\-_]+$", v):
+            raise ValueError(
+                "Team name can only contain letters, numbers, spaces, hyphens, and underscores"
+            )
         return v
-    
-    @validator('description')
+
+    @validator("description")
     def validate_description(cls, v):
         if v is not None:
             v = v.strip()
-            dangerous_patterns = [r'<script', r'javascript:', r'onerror=', r'onclick=']
+            dangerous_patterns = [r"<script", r"javascript:", r"onerror=", r"onclick="]
             for pattern in dangerous_patterns:
                 if re.search(pattern, v, re.IGNORECASE):
-                    raise ValueError('Description contains invalid content')
+                    raise ValueError("Description contains invalid content")
         return v
 
 
@@ -59,34 +61,36 @@ class TeamUpdate(BaseModel):
     name: Optional[str] = Field(None, min_length=1, max_length=100)
     description: Optional[str] = Field(None, max_length=1000)
     status: Optional[TeamStatus] = None
-    
-    @validator('name')
+
+    @validator("name")
     def validate_name(cls, v):
         if v is not None:
             v = v.strip()
             if not v:
-                raise ValueError('Team name cannot be empty')
-            if not re.match(r'^[a-zA-Z0-9\s\-_]+$', v):
-                raise ValueError('Team name can only contain letters, numbers, spaces, hyphens, and underscores')
+                raise ValueError("Team name cannot be empty")
+            if not re.match(r"^[a-zA-Z0-9\s\-_]+$", v):
+                raise ValueError(
+                    "Team name can only contain letters, numbers, spaces, hyphens, and underscores"
+                )
         return v
-    
-    @validator('description')
+
+    @validator("description")
     def validate_description(cls, v):
         if v is not None:
             v = v.strip()
-            dangerous_patterns = [r'<script', r'javascript:', r'onerror=', r'onclick=']
+            dangerous_patterns = [r"<script", r"javascript:", r"onerror=", r"onclick="]
             for pattern in dangerous_patterns:
                 if re.search(pattern, v, re.IGNORECASE):
-                    raise ValueError('Description contains invalid content')
+                    raise ValueError("Description contains invalid content")
         return v
-    
+
     @root_validator(pre=True)
     def validate_no_immutable_fields(cls, values: Dict[str, Any]) -> Dict[str, Any]:
         """Validate that no immutable fields are being updated"""
         if isinstance(values, dict):
             # List of fields that should never be updated
-            immutable_fields = ['id', 'created_by', 'created_at', 'updated_at']
-            
+            immutable_fields = ["id", "created_by", "created_at", "updated_at"]
+
             # Check if any immutable fields are present in the request
             invalid_fields = [field for field in immutable_fields if field in values]
             if invalid_fields:
@@ -94,7 +98,7 @@ class TeamUpdate(BaseModel):
                     f"Cannot update immutable fields: {', '.join(invalid_fields)}. "
                     f"Only these fields can be updated: name, description, status"
                 )
-        
+
         return values
 
 
@@ -105,7 +109,7 @@ class ProjectSimpleOut(BaseModel):
     description: Optional[str]
     status: str
     created_at: datetime
-    
+
     class Config:
         from_attributes = True
 
@@ -116,7 +120,7 @@ class TeamMemberOut(BaseModel):
     role: TeamRole
     is_active: bool
     joined_at: datetime
-    
+
     class Config:
         from_attributes = True
 
@@ -131,7 +135,7 @@ class TeamOut(BaseModel):
     updated_at: datetime
     members: Optional[List[TeamMemberOut]] = []
     projects: Optional[List[ProjectSimpleOut]] = []
-    
+
     class Config:
         from_attributes = True
 
@@ -144,7 +148,7 @@ class TeamListOut(BaseModel):
     created_by: int
     created_at: datetime
     member_count: Optional[int] = 0
-    
+
     class Config:
         from_attributes = True
 
@@ -169,6 +173,6 @@ class TeamMemberDetailOut(BaseModel):
     joined_at: datetime
     updated_at: datetime
     user: Optional[UserInfo] = None
-    
+
     class Config:
         from_attributes = True

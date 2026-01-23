@@ -2,6 +2,7 @@
 Tests for CRS (Customer Requirements Specification) service functionality.
 Covers persistence, versioning, status updates, and retrieval operations.
 """
+
 import json
 
 from sqlalchemy import create_engine
@@ -11,9 +12,9 @@ import app.models  # ensures all tables are registered with Base metadata
 from app.db.session import Base
 from app.models.crs import CRSStatus
 from app.services.crs_service import (
+    get_crs_versions,
     get_latest_crs,
     persist_crs_document,
-    get_crs_versions,
     update_crs_status,
 )
 
@@ -110,7 +111,9 @@ def test_update_crs_status():
         assert crs.status == CRSStatus.draft
 
         # Update to under_review
-        updated = update_crs_status(db, crs_id=crs.id, new_status=CRSStatus.under_review)
+        updated = update_crs_status(
+            db, crs_id=crs.id, new_status=CRSStatus.under_review
+        )
         assert updated.status == CRSStatus.under_review
 
         # Approve the CRS

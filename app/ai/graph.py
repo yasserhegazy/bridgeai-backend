@@ -1,15 +1,15 @@
 # app/ai/graph.py
 
-from langgraph.graph import StateGraph, END
-from app.ai.state import AgentState
+from langgraph.graph import END, StateGraph
 
 # Nodes
 from app.ai.nodes.clarification import clarification_node, should_request_clarification
+from app.ai.nodes.echo_node import echo_node
 from app.ai.nodes.memory_node import memory_node
-from app.ai.nodes.template_filler import template_filler_node
 from app.ai.nodes.suggestions import suggestions_node
 from app.ai.nodes.suggestions.suggestions_node import should_generate_suggestions
-from app.ai.nodes.echo_node import echo_node
+from app.ai.nodes.template_filler import template_filler_node
+from app.ai.state import AgentState
 
 
 def create_graph():
@@ -47,11 +47,11 @@ def create_graph():
     # ----------------------------
     graph.add_conditional_edges(
         "clarification",
-        should_request_clarification,     # function returns: True or False
+        should_request_clarification,  # function returns: True or False
         {
-            True: END,                    # If clarification needed → stop workflow
-            False: "template_filler"      # Otherwise continue to template filler
-        }
+            True: END,  # If clarification needed → stop workflow
+            False: "template_filler",  # Otherwise continue to template filler
+        },
     )
 
     # ----------------------------
@@ -67,8 +67,8 @@ def create_graph():
         should_generate_suggestions,
         {
             True: "suggestions",  # Generate creative suggestions
-            False: END            # Skip suggestions and end
-        }
+            False: END,  # Skip suggestions and end
+        },
     )
 
     # ----------------------------

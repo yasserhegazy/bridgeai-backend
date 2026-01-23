@@ -3,9 +3,10 @@ Clarification Node using Groq LLM for requirement ambiguity detection.
 Integrates memory search to provide context from previous interactions.
 """
 
-from typing import Dict, Any, Optional
-from app.ai.state import AgentState
+from typing import Any, Dict
+
 from app.ai.nodes.clarification.llm_ambiguity_detector import LLMAmbiguityDetector
+from app.ai.state import AgentState
 
 
 def clarification_node(state: AgentState) -> Dict[str, Any]:
@@ -18,29 +19,30 @@ def clarification_node(state: AgentState) -> Dict[str, Any]:
     # Build context payload
     context = {
         "conversation_history": conversation_history,
-        "extracted_fields": extracted_fields
+        "extracted_fields": extracted_fields,
     }
-    
+
     # Enrich context with relevant memories if available
     if db and project_id:
         try:
             from app.ai.memory_service import search_project_memories
+
             relevant_memories = search_project_memories(
                 db=db,
                 project_id=project_id,
                 query=user_input,
                 limit=3,
-                similarity_threshold=0.2
+                similarity_threshold=0.2,
             )
             context["relevant_memories"] = [
                 {
                     "text": m["text"],
                     "source_type": m["source_type"],
-                    "similarity": m["similarity_score"]
+                    "similarity": m["similarity_score"],
                 }
                 for m in relevant_memories
             ]
-        except Exception as e:
+        except Exception:
             # Gracefully handle memory lookup failures
             context["relevant_memories"] = []
 
@@ -81,7 +83,7 @@ def clarification_node(state: AgentState) -> Dict[str, Any]:
                 "field": a.field,
                 "reason": a.reason,
                 "severity": a.severity,
-                "suggestion": a.suggestion
+                "suggestion": a.suggestion,
             }
             for a in ambiguities
         ],
@@ -90,7 +92,7 @@ def clarification_node(state: AgentState) -> Dict[str, Any]:
         "quality_summary": summary,
         "output": response,
         "last_node": "clarification",
-        "intent": intent
+        "intent": intent,
     }
 
 
@@ -103,10 +105,10 @@ def should_request_clarification(state: AgentState) -> bool:
     """
     needs_clarification = state.get("needs_clarification", False)
     intent = state.get("intent", "requirement")
-    
+
     # If it's a greeting/question/deferral, we stop here and return the response
     if intent != "requirement":
         return True
-        
+
     # If it's a requirement but needs clarification, we also stop
     return needs_clarification

@@ -1,8 +1,20 @@
-from sqlalchemy import Column, Integer, String, Text, DateTime, Enum, ForeignKey, Boolean, UniqueConstraint
-from sqlalchemy.sql import func
-from sqlalchemy.orm import relationship
-from app.db.session import Base
 import enum
+
+from sqlalchemy import (
+    Boolean,
+    Column,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
+)
+from sqlalchemy.orm import relationship
+from sqlalchemy.sql import func
+
+from app.db.session import Base
 
 
 class TeamRole(enum.Enum):
@@ -27,11 +39,15 @@ class Team(Base):
     status = Column(Enum(TeamStatus), default=TeamStatus.active)
     created_by = Column(Integer, ForeignKey("users.id"), nullable=False)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
     # Relationships
     creator = relationship("User", foreign_keys=[created_by])
-    members = relationship("TeamMember", back_populates="team", cascade="all, delete-orphan")
+    members = relationship(
+        "TeamMember", back_populates="team", cascade="all, delete-orphan"
+    )
     projects = relationship("Project", back_populates="team")
 
 
@@ -44,10 +60,12 @@ class TeamMember(Base):
     role = Column(Enum(TeamRole), default=TeamRole.member)
     is_active = Column(Boolean, default=True)
     joined_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now())
+    updated_at = Column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
 
     # Ensure a user can only be in a team once
-    __table_args__ = (UniqueConstraint('team_id', 'user_id', name='unique_team_user'),)
+    __table_args__ = (UniqueConstraint("team_id", "user_id", name="unique_team_user"),)
 
     # Relationships
     team = relationship("Team", back_populates="members")

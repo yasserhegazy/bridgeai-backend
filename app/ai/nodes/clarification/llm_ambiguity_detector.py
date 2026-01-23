@@ -1,12 +1,12 @@
-import os
 import json
-import re
-from typing import List, Dict, Optional, Any
-from dataclasses import dataclass
 import logging
+import os
+import re
+from dataclasses import dataclass
+from typing import Any, Dict, List, Optional
 
-from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate
+from langchain_groq import ChatGroq
 
 logger = logging.getLogger(__name__)
 
@@ -110,10 +110,12 @@ Your response must be a pure JSON object with this exact structure:
 Return pure JSON now:
 """
 
-    def __init__(self, model: str = "llama-3.3-70b-versatile", temperature: float = 0.3):
+    def __init__(
+        self, model: str = "llama-3.3-70b-versatile", temperature: float = 0.3
+    ):
         """
         Initialize the ambiguity detector with Groq LLM.
-        
+
         Available models (as of Dec 2024):
         - llama-3.3-70b-versatile (recommended for structured output)
         - llama-3.1-8b-instant (faster but less capable)
@@ -125,10 +127,7 @@ Return pure JSON now:
             raise ValueError("GROQ_API_KEY missing in environment.")
 
         self.llm = ChatGroq(
-            model=model,
-            groq_api_key=api_key,
-            temperature=temperature,
-            max_tokens=2048
+            model=model, groq_api_key=api_key, temperature=temperature, max_tokens=2048
         )
 
         self.analysis_prompt = ChatPromptTemplate.from_template(self.ANALYSIS_PROMPT)
@@ -144,16 +143,18 @@ Return pure JSON now:
             return json.loads(text)
         except json.JSONDecodeError:
             # Try to extract JSON from markdown code blocks
-            json_match = re.search(r'```(?:json)?\\s*({.*?})\\s*```', text, re.DOTALL)
+            json_match = re.search(r"```(?:json)?\\s*({.*?})\\s*```", text, re.DOTALL)
             if json_match:
                 return json.loads(json_match.group(1))
-            
+
             # Try to find any JSON object in the text
-            json_match = re.search(r'{.*}', text, re.DOTALL)
+            json_match = re.search(r"{.*}", text, re.DOTALL)
             if json_match:
                 return json.loads(json_match.group(0))
-            
-            raise ValueError(f"Could not extract valid JSON from response: {text[:200]}...")
+
+            raise ValueError(
+                f"Could not extract valid JSON from response: {text[:200]}..."
+            )
 
     # -----------------------------------
     # LLM Wrapper
@@ -174,19 +175,28 @@ Return pure JSON now:
         try:
             # Format conversation history
             conv_history = context.get("conversation_history", [])
-            history_text = "\n".join(conv_history) if conv_history else "No previous conversation"
-            
+            history_text = (
+                "\n".join(conv_history) if conv_history else "No previous conversation"
+            )
+
             # Format relevant memories
             memories = context.get("relevant_memories", [])
             if memories:
-                memories_text = "\n".join([f"- {m['text']} (Similarity: {m.get('similarity', 0):.2f})" for m in memories])
+                memories_text = "\n".join(
+                    [
+                        f"- {m['text']} (Similarity: {m.get('similarity', 0):.2f})"
+                        for m in memories
+                    ]
+                )
             else:
                 memories_text = "No relevant past memories found."
 
             # Format extracted fields
             fields = context.get("extracted_fields", {})
-            fields_text = json.dumps(fields, indent=2) if fields else "No extracted fields yet"
-            
+            fields_text = (
+                json.dumps(fields, indent=2) if fields else "No extracted fields yet"
+            )
+
             messages = self.analysis_prompt.format_messages(
                 user_input=user_input,
                 conversation_history=history_text,
@@ -196,7 +206,7 @@ Return pure JSON now:
 
             raw = self._call_llm(messages)
             logger.info(f"LLM Analysis Response: {raw[:200]}...")
-            
+
             result = self._extract_json(raw)
 
             ambiguities = [
@@ -205,7 +215,7 @@ Return pure JSON now:
                     field=a.get("field", "general"),
                     reason=a.get("reason", "No reason provided"),
                     severity=a.get("severity", "medium"),
-                    suggestion=a.get("suggestion")
+                    suggestion=a.get("suggestion"),
                 )
                 for a in result.get("ambiguities", [])
             ]
@@ -215,7 +225,7 @@ Return pure JSON now:
             intent = result.get("intent", "requirement")
 
             return ambiguities, clarity_score, summary, intent
-            
+
         except Exception as e:
             logger.error(f"Analysis failed: {str(e)}")
             # Return safe defaults on error
@@ -238,17 +248,20 @@ Return pure JSON now:
 
             raw = self._call_llm(messages)
             logger.info(f"LLM Questions Response: {raw[:200]}...")
-            
+
             result = self._extract_json(raw)
 
             questions = result.get("questions", [])
-            
+
             # Fallback: generate basic questions if LLM fails
             if not questions:
-                questions = [f"Can you provide more details about: {a.field}?" for a in ambiguities[:3]]
-            
+                questions = [
+                    f"Can you provide more details about: {a.field}?"
+                    for a in ambiguities[:3]
+                ]
+
             return questions
-            
+
         except Exception as e:
             logger.error(f"Question generation failed: {str(e)}")
             # Return fallback questions
@@ -260,19 +273,23 @@ Return pure JSON now:
     def analyze_and_generate_questions(self, user_input: str, context: Dict[str, Any]):
         """Complete workflow: analyze requirements and generate questions."""
         logger.info(f"Analyzing requirement: {user_input[:100]}...")
-        
+
         ambiguities, score, summary, intent = self.analyze(user_input, context)
-        
+
         # Only generate questions for significant ambiguities or low clarity scores
         # AND if the intent is actually a requirement analysis
-        needs_clarification = (len(ambiguities) > 0 or score < 70) and intent == "requirement"
-        
+        needs_clarification = (
+            len(ambiguities) > 0 or score < 70
+        ) and intent == "requirement"
+
         questions = []
         if needs_clarification:
             questions = self.generate_questions(ambiguities)
 
-        logger.info(f"Analysis complete. Score: {score}, Questions: {len(questions)}, Intent: {intent}")
-        
+        logger.info(
+            f"Analysis complete. Score: {score}, Questions: {len(questions)}, Intent: {intent}"
+        )
+
         return {
             "ambiguities": ambiguities,
             "clarification_questions": questions,
@@ -283,5 +300,5 @@ Return pure JSON now:
             "clarification_questions": questions,
             "clarity_score": score,
             "summary": summary,
-            "needs_clarification": needs_clarification and len(questions) > 0
+            "needs_clarification": needs_clarification and len(questions) > 0,
         }

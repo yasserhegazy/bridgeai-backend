@@ -1,10 +1,13 @@
 """
 LLM-powered Creative Suggestions Generator
 """
+
 import json
 import logging
-from typing import Dict, List, Any
+from typing import Any, Dict, List
+
 from openai import OpenAI
+
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
@@ -14,57 +17,55 @@ client = OpenAI(api_key=settings.GROQ_API_KEY)
 
 
 def generate_creative_suggestions(
-    project_context: Dict[str, Any],
-    current_input: str
+    project_context: Dict[str, Any], current_input: str
 ) -> List[Dict[str, Any]]:
     """
     Generate creative suggestions for additional features and scenarios
-    
+
     Args:
         project_context: Comprehensive project context
         current_input: Current user input
-        
+
     Returns:
         List of creative suggestions
     """
     try:
         prompt = _build_suggestions_prompt(project_context, current_input)
-        
+
         response = client.chat.completions.create(
             model="gpt-4",
             messages=[
                 {
                     "role": "system",
-                    "content": "You are a creative software analyst who excels at identifying opportunities for additional features, alternative scenarios, and system enhancements. You think beyond the obvious requirements to propose valuable additions."
+                    "content": "You are a creative software analyst who excels at identifying opportunities for additional features, alternative scenarios, and system enhancements. You think beyond the obvious requirements to propose valuable additions.",
                 },
-                {
-                    "role": "user",
-                    "content": prompt
-                }
+                {"role": "user", "content": prompt},
             ],
             temperature=0.7,  # Higher creativity
-            max_tokens=2000
+            max_tokens=2000,
         )
-        
+
         suggestions_text = response.choices[0].message.content
         suggestions = _parse_suggestions_response(suggestions_text)
-        
+
         logger.info(f"Generated {len(suggestions)} creative suggestions")
         return suggestions
-        
+
     except Exception as e:
         logger.error(f"Failed to generate suggestions: {str(e)}")
         return []
 
 
-def _build_suggestions_prompt(project_context: Dict[str, Any], current_input: str) -> str:
+def _build_suggestions_prompt(
+    project_context: Dict[str, Any], current_input: str
+) -> str:
     """Build the prompt for creative suggestions generation"""
-    
+
     existing_reqs = "\n".join(project_context.get("existing_requirements", [])[:5])
     features = "\n".join(project_context.get("features", [])[:5])
     use_cases = "\n".join(project_context.get("use_cases", [])[:5])
     tech_details = "\n".join(project_context.get("technical_details", [])[:3])
-    
+
     return f"""
 Based on the following project context, generate creative suggestions for additional features, scenarios, and enhancements:
 
@@ -118,24 +119,24 @@ def _parse_suggestions_response(response_text: str) -> List[Dict[str, Any]]:
     """Parse the LLM response into structured suggestions"""
     try:
         # Try to extract JSON from the response
-        start_idx = response_text.find('[')
-        end_idx = response_text.rfind(']') + 1
-        
+        start_idx = response_text.find("[")
+        end_idx = response_text.rfind("]") + 1
+
         if start_idx != -1 and end_idx != 0:
             json_text = response_text[start_idx:end_idx]
             suggestions = json.loads(json_text)
-            
+
             # Validate and clean suggestions
             validated_suggestions = []
             for suggestion in suggestions:
                 if _validate_suggestion(suggestion):
                     validated_suggestions.append(suggestion)
-            
+
             return validated_suggestions
         else:
             # Fallback: parse as text
             return _parse_text_suggestions(response_text)
-            
+
     except json.JSONDecodeError:
         logger.warning("Failed to parse JSON response, attempting text parsing")
         return _parse_text_suggestions(response_text)
@@ -153,31 +154,31 @@ def _validate_suggestion(suggestion: Dict[str, Any]) -> bool:
 def _parse_text_suggestions(text: str) -> List[Dict[str, Any]]:
     """Fallback parser for non-JSON responses"""
     suggestions = []
-    
+
     # Simple text parsing logic
-    lines = text.split('\n')
+    lines = text.split("\n")
     current_suggestion = {}
-    
+
     for line in lines:
         line = line.strip()
         if not line:
             continue
-            
-        if line.startswith('Title:') or line.startswith('**Title'):
+
+        if line.startswith("Title:") or line.startswith("**Title"):
             if current_suggestion:
                 suggestions.append(current_suggestion)
             current_suggestion = {
-                "title": line.split(':', 1)[1].strip().replace('**', ''),
+                "title": line.split(":", 1)[1].strip().replace("**", ""),
                 "category": "ADDITIONAL_FEATURES",
                 "complexity": "Medium",
-                "priority": "Medium"
+                "priority": "Medium",
             }
-        elif line.startswith('Description:') and current_suggestion:
-            current_suggestion["description"] = line.split(':', 1)[1].strip()
-        elif line.startswith('Value:') and current_suggestion:
-            current_suggestion["value_proposition"] = line.split(':', 1)[1].strip()
-    
+        elif line.startswith("Description:") and current_suggestion:
+            current_suggestion["description"] = line.split(":", 1)[1].strip()
+        elif line.startswith("Value:") and current_suggestion:
+            current_suggestion["value_proposition"] = line.split(":", 1)[1].strip()
+
     if current_suggestion:
         suggestions.append(current_suggestion)
-    
+
     return suggestions[:8]  # Limit to 8 suggestions

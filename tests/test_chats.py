@@ -1,15 +1,17 @@
 """
 Tests for chat/session endpoints.
 """
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
-from app.models.user import User, UserRole
-from app.models.team import Team, TeamMember, TeamRole
+
+from app.core.security import create_access_token
 from app.models.project import Project
 from app.models.session_model import SessionModel, SessionStatus
+from app.models.team import Team, TeamMember, TeamRole
+from app.models.user import User, UserRole
 from app.utils.hash import hash_password
-from app.core.security import create_access_token
 
 
 @pytest.fixture
@@ -19,7 +21,7 @@ def test_user(db: Session):
         email="chatuser@test.com",
         full_name="Chat Test User",
         password_hash=hash_password("testpassword"),
-        role=UserRole.client
+        role=UserRole.client,
     )
     db.add(user)
     db.commit()
@@ -33,18 +35,14 @@ def test_team(db: Session, test_user):
     team = Team(
         name="Chat Test Team",
         description="A test team for chat testing",
-        created_by=test_user.id
+        created_by=test_user.id,
     )
     db.add(team)
     db.commit()
     db.refresh(team)
-    
+
     # Add user as team member
-    member = TeamMember(
-        team_id=team.id,
-        user_id=test_user.id,
-        role=TeamRole.owner
-    )
+    member = TeamMember(team_id=team.id, user_id=test_user.id, role=TeamRole.owner)
     db.add(member)
     db.commit()
     return team
@@ -58,7 +56,7 @@ def test_project(db: Session, test_team, test_user):
         description="A test project for chat testing",
         team_id=test_team.id,
         created_by=test_user.id,
-        status="pending"
+        status="pending",
     )
     db.add(project)
     db.commit()
@@ -78,9 +76,9 @@ def test_create_chat_session(client: TestClient, test_project, auth_headers):
     response = client.post(
         f"/api/projects/{test_project.id}/chats",
         json={"name": "Requirements Discussion"},
-        headers=auth_headers
+        headers=auth_headers,
     )
-    
+
     assert response.status_code == 201
     data = response.json()
     assert data["name"] == "Requirements Discussion"
@@ -92,32 +90,25 @@ def test_create_chat_session(client: TestClient, test_project, auth_headers):
 def test_create_chat_without_name(client: TestClient, test_project, auth_headers):
     """Test creating chat without name should fail"""
     response = client.post(
-        f"/api/projects/{test_project.id}/chats",
-        json={},
-        headers=auth_headers
+        f"/api/projects/{test_project.id}/chats", json={}, headers=auth_headers
     )
-    
+
     assert response.status_code == 422  # Validation error
 
 
 def test_create_chat_without_auth(client: TestClient):
     """Test creating chat without authentication should fail"""
-    response = client.post(
-        "/api/projects/1/chats",
-        json={"name": "Test Chat"}
-    )
-    
+    response = client.post("/api/projects/1/chats", json={"name": "Test Chat"})
+
     assert response.status_code == 401
 
 
 def test_create_chat_invalid_project(client: TestClient, auth_headers):
     """Test creating chat for non-existent project should fail"""
     response = client.post(
-        "/api/projects/99999/chats",
-        json={"name": "Test Chat"},
-        headers=auth_headers
+        "/api/projects/99999/chats", json={"name": "Test Chat"}, headers=auth_headers
     )
-    
+
     assert response.status_code == 404
 
 
@@ -127,20 +118,19 @@ def test_get_all_chats(client: TestClient, test_project, auth_headers):
     client.post(
         f"/api/projects/{test_project.id}/chats",
         json={"name": "Chat 1"},
-        headers=auth_headers
+        headers=auth_headers,
     )
     client.post(
         f"/api/projects/{test_project.id}/chats",
         json={"name": "Chat 2"},
-        headers=auth_headers
+        headers=auth_headers,
     )
-    
+
     # Get all chats
     response = client.get(
-        f"/api/projects/{test_project.id}/chats",
-        headers=auth_headers
+        f"/api/projects/{test_project.id}/chats", headers=auth_headers
     )
-    
+
     assert response.status_code == 200
     data = response.json()
     assert len(data) == 2
@@ -154,16 +144,15 @@ def test_get_specific_chat(client: TestClient, test_project, auth_headers):
     create_response = client.post(
         f"/api/projects/{test_project.id}/chats",
         json={"name": "Specific Chat"},
-        headers=auth_headers
+        headers=auth_headers,
     )
     chat_id = create_response.json()["id"]
-    
+
     # Get the chat
     response = client.get(
-        f"/api/projects/{test_project.id}/chats/{chat_id}",
-        headers=auth_headers
+        f"/api/projects/{test_project.id}/chats/{chat_id}", headers=auth_headers
     )
-    
+
     assert response.status_code == 200
     data = response.json()
     assert data["id"] == chat_id
@@ -177,16 +166,13 @@ def test_get_chat_wrong_project(client: TestClient, test_project, auth_headers):
     create_response = client.post(
         f"/api/projects/{test_project.id}/chats",
         json={"name": "Test Chat"},
-        headers=auth_headers
+        headers=auth_headers,
     )
     chat_id = create_response.json()["id"]
-    
+
     # Try to get it with wrong project_id
-    response = client.get(
-        f"/api/projects/99999/chats/{chat_id}",
-        headers=auth_headers
-    )
-    
+    response = client.get(f"/api/projects/99999/chats/{chat_id}", headers=auth_headers)
+
     assert response.status_code == 404
 
 
@@ -196,21 +182,20 @@ def test_update_chat_status(client: TestClient, test_project, auth_headers):
     create_response = client.post(
         f"/api/projects/{test_project.id}/chats",
         json={"name": "Test Chat"},
-        headers=auth_headers
+        headers=auth_headers,
     )
     chat_id = create_response.json()["id"]
-    
+
     # Update status to completed
     response = client.put(
         f"/api/projects/{test_project.id}/chats/{chat_id}",
         json={"status": "completed"},
-        headers=auth_headers
+        headers=auth_headers,
     )
-    
+
     assert response.status_code == 200
     data = response.json()
     assert data["status"] == "completed"
-    
 
 
 def test_delete_chat(client: TestClient, test_project, auth_headers):
@@ -219,22 +204,20 @@ def test_delete_chat(client: TestClient, test_project, auth_headers):
     create_response = client.post(
         f"/api/projects/{test_project.id}/chats",
         json={"name": "Chat to Delete"},
-        headers=auth_headers
+        headers=auth_headers,
     )
     chat_id = create_response.json()["id"]
-    
+
     # Delete the chat
     response = client.delete(
-        f"/api/projects/{test_project.id}/chats/{chat_id}",
-        headers=auth_headers
+        f"/api/projects/{test_project.id}/chats/{chat_id}", headers=auth_headers
     )
-    
+
     assert response.status_code == 204
-    
+
     # Verify it's deleted
     get_response = client.get(
-        f"/api/projects/{test_project.id}/chats/{chat_id}",
-        headers=auth_headers
+        f"/api/projects/{test_project.id}/chats/{chat_id}", headers=auth_headers
     )
     assert get_response.status_code == 404
 
@@ -242,10 +225,9 @@ def test_delete_chat(client: TestClient, test_project, auth_headers):
 def test_delete_nonexistent_chat(client: TestClient, test_project, auth_headers):
     """Test deleting non-existent chat should fail"""
     response = client.delete(
-        f"/api/projects/{test_project.id}/chats/99999",
-        headers=auth_headers
+        f"/api/projects/{test_project.id}/chats/99999", headers=auth_headers
     )
-    
+
     assert response.status_code == 404
 
 
@@ -256,21 +238,21 @@ def test_chat_access_control(client: TestClient, db: Session, test_project):
         email="otheruser@example.com",
         full_name="Other User",
         password_hash=hash_password("password"),
-        role=UserRole.client
+        role=UserRole.client,
     )
     db.add(other_user)
     db.commit()
     db.refresh(other_user)
-    
+
     # Generate token for other user
     other_token = create_access_token(data={"sub": str(other_user.id)})
     other_headers = {"Authorization": f"Bearer {other_token}"}
-    
+
     # Try to create chat in project
     response = client.post(
         f"/api/projects/{test_project.id}/chats",
         json={"name": "Unauthorized Chat"},
-        headers=other_headers
+        headers=other_headers,
     )
-    
+
     assert response.status_code == 403

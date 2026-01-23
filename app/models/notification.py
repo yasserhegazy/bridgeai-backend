@@ -1,7 +1,17 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Enum as SQLEnum, JSON
-from sqlalchemy.orm import relationship
-from datetime import datetime
 import enum
+from datetime import datetime
+
+from sqlalchemy import (
+    JSON,
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+)
+from sqlalchemy.orm import relationship
+
 from app.db.session import Base
 
 
@@ -21,20 +31,26 @@ class Notification(Base):
     __tablename__ = "notifications"
 
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)  # CRITICAL: FK index
+    user_id = Column(
+        Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )  # CRITICAL: FK index
     type = Column(String(50), nullable=False)  # No index - low selectivity (~8 types)
-    reference_id = Column(Integer, nullable=False)  # No index - not queried independently
+    reference_id = Column(
+        Integer, nullable=False
+    )  # No index - not queried independently
     title = Column(String(255), nullable=False)
     message = Column(String(500), nullable=False)
-    is_read = Column(Boolean, default=False, nullable=False)  # No index - only 2 values (very low selectivity)
+    is_read = Column(
+        Boolean, default=False, nullable=False
+    )  # No index - only 2 values (very low selectivity)
     meta_data = Column(JSON, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)  # No standalone index
+    created_at = Column(
+        DateTime, default=datetime.utcnow, nullable=False
+    )  # No standalone index
 
     # Relationships
     user = relationship("User", back_populates="notifications")
-    
+
     # Composite index covers: WHERE user_id=X AND is_read=Y ORDER BY created_at DESC
     # MySQL can use leftmost prefix for: WHERE user_id=X ORDER BY created_at
-    __table_args__ = (
-        {"mysql_engine": "InnoDB"},
-    )
+    __table_args__ = ({"mysql_engine": "InnoDB"},)
