@@ -1,0 +1,145 @@
+name: Coverage Tracking
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  coverage:
+    name: Generate Coverage Report
+    runs-on: ubuntu-latest
+    
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: test_password
+          MYSQL_DATABASE: test_db
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Needed for coverage comparison
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.13'
+        cache: 'pip'
+
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y pkg-config libcairo2-dev
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        pip install -r requirements-test.txt
+
+    - name: Wait for MySQL
+      run: |
+        for i in {1..30}; do
+          if mysqladmin ping -h"127.0.0.1" --silent; then
+            break
+          fi
+          sleep 2
+        done
+
+    - name: Run tests with coverage
+      env:
+        DATABASE_URL: mysql+pymysql://root:test_password@127.0.0.1:3306/test_db
+        SECRET_KEY: test-secret-key-for-ci
+        ALGORITHM: HS256
+        ACCESS_TOKEN_EXPIRE_MINUTES: 30
+        GROQ_API_KEY: ${{ secrets.GROQ_API_KEY }}
+        OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      run: |
+        pytest tests/ \
+          --cov=app \
+          --cov-report=xml \
+          --cov-report=html \
+          --cov-report=term-missing \
+          --cov-report=json
+
+    - name: Generate coverage badge
+      run: |
+        coverage report | grep TOTAL | awk '{print $NF}' | sed 's/%//' > coverage.txt
+        COVERAGE=$(cat coverage.txt)
+        echo "Coverage: $COVERAGE%"
+        
+        if (( $(echo "$COVERAGE >= 80" | bc -l) )); then
+          COLOR="brightgreen"
+        elif (( $(echo "$COVERAGE >= 60" | bc -l) )); then
+          COLOR="yellow"
+        else
+          COLOR="red"
+        fi
+        
+        echo "COVERAGE=$COVERAGE" >> $GITHUB_ENV
+        echo "BADGE_COLOR=$COLOR" >> $GITHUB_ENV
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v4
+      with:
+        file: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+        fail_ci_if_error: false
+      env:
+        CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+
+    - name: Upload coverage to Coveralls
+      uses: coverallsapp/github-action@v2
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        path-to-lcov: ./coverage.xml
+        format: cobertura
+      continue-on-error: true
+
+    - name: Archive coverage reports
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-reports
+        path: |
+          coverage.xml
+          htmlcov/
+          coverage.json
+        retention-days: 90
+
+    - name: Comment PR with coverage
+      if: github.event_name == 'pull_request'
+      uses: py-cov-action/python-coverage-comment-action@v3
+      with:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        MINIMUM_GREEN: 80
+        MINIMUM_ORANGE: 60
+      continue-on-error: true
+
+    - name: Coverage summary
+      run: |
+        echo "## Coverage Report" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Total Coverage:** ${{ env.COVERAGE }}%" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "### By Module:" >> $GITHUB_STEP_SUMMARY
+        coverage report --format=markdown >> $GITHUB_STEP_SUMMARY
+
+    - name: Check minimum coverage threshold
+      run: |
+        COVERAGE=${{ env.COVERAGE }}
+        if (( $(echo "$COVERAGE < 70" | bc -l) )); then
+          echo "::warning::Coverage is below 70% threshold (currently $COVERAGE%)"
+          exit 1
+        fi

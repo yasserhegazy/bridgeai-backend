@@ -27,3 +27,13 @@ sentence_transformers
 markdown
 xhtml2pdf
 
+# Development & CI/CD tools
+black
+isort
+flake8
+mypy
+bandit
+safety
+pytest-cov
+coverage
+langchain_groq
