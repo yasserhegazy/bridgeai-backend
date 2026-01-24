@@ -14,10 +14,10 @@ from starlette.middleware.base import BaseHTTPMiddleware  # noqa: E402
 from app import __version__  # noqa: E402
 from app.ai.chroma_manager import initialize_chroma  # noqa: E402
 from app.api import auth  # noqa: E402
+from app.api import memory  # noqa: E402
 from app.api import router as api_router  # noqa: E402
 from app.core.middleware import SecurityHeadersMiddleware  # noqa: E402
 from app.core.rate_limit import limiter  # noqa: E402
-
 
 # 1. LIFESPAN: This is the secret. The app "starts" first, THEN runs this.
 @asynccontextmanager
@@ -94,6 +94,7 @@ app.add_middleware(
 
 app.include_router(api_router, prefix="/api")
 app.include_router(auth.router)
+app.include_router(memory.router)
 
 
 @app.get("/")
