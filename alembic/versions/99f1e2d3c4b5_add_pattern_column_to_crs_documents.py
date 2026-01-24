@@ -22,9 +22,15 @@ def upgrade() -> None:
     """Upgrade schema - add pattern column to crs_documents."""
     bind = op.get_bind()
     
-    # Create ENUM type for CRS patterns - use a database-specific approach
-    # MySQL handles ENUM as a native type
-    op.execute("ALTER TABLE crs_documents ADD COLUMN pattern ENUM('iso_iec_ieee_29148', 'ieee_830', 'babok') NOT NULL DEFAULT 'babok'")
+    # Check if pattern column already exists
+    from sqlalchemy import inspect
+    inspector = inspect(bind)
+    columns = [col['name'] for col in inspector.get_columns('crs_documents')]
+    
+    if 'pattern' not in columns:
+        # Create ENUM type for CRS patterns - use a database-specific approach
+        # MySQL handles ENUM as a native type
+        op.execute("ALTER TABLE crs_documents ADD COLUMN pattern ENUM('iso_iec_ieee_29148', 'ieee_830', 'babok') NOT NULL DEFAULT 'babok'")
 
 
 def downgrade() -> None:
