@@ -355,7 +355,7 @@ Return ONLY a valid JSON object:
         {{
             "id": "US-001",
             "title": "Short User Story Title",
-            "description": "**AS A** [Role]\\n**I WANT TO** [Action]\\n**SO THAT** [Value]",
+            "description": "As a [Role]\\n, I want to [Action]\\nSo that [Value]",
             "priority": "high"
         }}
     ],

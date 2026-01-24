@@ -18,6 +18,7 @@ class CRSPattern(enum.Enum):
     iso_iec_ieee_29148 = "iso_iec_ieee_29148"
     ieee_830 = "ieee_830"
     babok = "babok"
+    agile_user_stories = "agile_user_stories"
 
 
 class CRSDocument(Base):
