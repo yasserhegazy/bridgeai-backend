@@ -12,6 +12,7 @@ class SessionStatus(enum.Enum):
     completed = "completed"
 
 
+
 class SessionModel(Base):
     __tablename__ = "sessions"
 
@@ -24,8 +25,10 @@ class SessionModel(Base):
         nullable=True,
         index=True,
     )
+    crs_pattern = Column(String(50), nullable=True, default="babok")
     name = Column(String(255), nullable=False)
     status = Column(Enum(SessionStatus), default=SessionStatus.active)
+    
     started_at = Column(DateTime(timezone=True), server_default=func.now())
     ended_at = Column(DateTime(timezone=True), nullable=True)
 

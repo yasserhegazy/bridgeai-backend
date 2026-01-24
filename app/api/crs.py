@@ -43,6 +43,7 @@ from app.services.notification_service import (
     notify_crs_status_changed,
 )
 
+
 router = APIRouter()
 
 
@@ -57,6 +58,9 @@ class CRSCreate(BaseModel):
         None, description="Completeness percentage for partial CRS"
     )
     session_id: Optional[int] = Field(None, description="Session ID to link the CRS to")
+    pattern: Optional[str] = Field(
+        None, description="CRS Pattern (babok, ieee_830, iso_iec_ieee_29148, agile_user_stories)"
+    )
 
 
 class CRSStatusUpdate(BaseModel):
@@ -74,6 +78,7 @@ class CRSOut(BaseModel):
     id: int
     project_id: int
     status: str
+    pattern: str
     version: int
     edit_version: int
     content: str
@@ -157,6 +162,7 @@ def create_crs(
         summary_points=payload.summary_points,
         field_sources=getattr(payload, "field_sources", None),
         initial_status=initial_status,
+        pattern=payload.pattern,
     )
 
     # Link CRS to session if provided
@@ -211,6 +217,7 @@ def create_crs(
         id=crs.id,
         project_id=crs.project_id,
         status=crs.status.value,
+        pattern=crs.pattern.value if crs.pattern else "babok",
         version=crs.version,
         edit_version=crs.edit_version,
         content=crs.content,
@@ -256,6 +263,7 @@ def read_latest_crs(
         id=crs.id,
         project_id=crs.project_id,
         status=crs.status.value,
+        pattern=crs.pattern.value if crs.pattern else "babok",
         version=crs.version,
         edit_version=crs.edit_version,
         content=crs.content,
@@ -316,6 +324,7 @@ def read_crs_for_session(
                 id=crs.id,
                 project_id=crs.project_id,
                 status=crs.status.value,
+                pattern=crs.pattern.value if crs.pattern else "babok",
                 version=crs.version,
                 edit_version=crs.edit_version,
                 content=crs.content,
@@ -339,6 +348,7 @@ def read_crs_for_session(
 )
 async def generate_draft_crs_from_session(
     session_id: int,
+    pattern: Optional[str] = Query(None, description="CRS Pattern (babok, ieee_830, iso_iec_ieee_29148)"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -362,9 +372,9 @@ async def generate_draft_crs_from_session(
     verify_team_membership(db, project.team_id, current_user.id)
 
     try:
-        # Generate preview first
+         # Generate preview first
         preview_data = await generate_preview_crs(
-            db=db, session_id=session_id, user_id=current_user.id
+            db=db, session_id=session_id, user_id=current_user.id, pattern=pattern
         )
 
         # Persist as draft CRS (force_draft=True bypasses completeness check)
@@ -434,6 +444,7 @@ async def generate_draft_crs_from_session(
 @router.get("/sessions/{session_id}/preview", response_model=CRSPreviewOut)
 async def preview_crs_for_session(
     session_id: int,
+    pattern: Optional[str] = Query(None, description="CRS Pattern (babok, ieee_830, iso_iec_ieee_29148)"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -464,7 +475,7 @@ async def preview_crs_for_session(
 
     try:
         preview_data = await generate_preview_crs(
-            db=db, session_id=session_id, user_id=current_user.id
+            db=db, session_id=session_id, user_id=current_user.id, pattern=pattern
         )
         return CRSPreviewOut(**preview_data)
     except ValueError as e:
@@ -718,6 +729,7 @@ def read_crs(
         id=crs.id,
         project_id=crs.project_id,
         status=crs.status.value,
+        pattern=crs.pattern.value if crs.pattern else "babok",
         version=crs.version,
         edit_version=crs.edit_version,
         content=crs.content,
@@ -853,6 +865,7 @@ def update_crs_status_endpoint(
         id=updated_crs.id,
         project_id=updated_crs.project_id,
         status=updated_crs.status.value,
+        pattern=updated_crs.pattern.value if updated_crs.pattern else "babok",
         version=updated_crs.version,
         edit_version=updated_crs.edit_version,
         content=updated_crs.content,

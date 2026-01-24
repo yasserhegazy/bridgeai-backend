@@ -20,6 +20,7 @@ class AgentState(TypedDict, total=False):
     # Template Filler Agent fields (CRS)
     crs_content: Optional[str]  # JSON string of filled CRS template
     crs_template: Optional[Dict[str, Any]]  # Dictionary representation of CRS
+    crs_pattern: Optional[str]  # CRS pattern selection (iso_iec_ieee_29148, ieee_830, or babok)
     summary_points: Optional[List[str]]  # Key summary points from CRS
     crs_is_complete: bool  # Whether CRS has sufficient information
     crs_document_id: Optional[int]  # Database ID of the persisted CRS document

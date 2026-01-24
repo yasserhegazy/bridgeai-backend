@@ -10,7 +10,7 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 
 from app.ai.memory_service import create_memory
-from app.models.crs import CRSDocument, CRSStatus
+from app.models.crs import CRSDocument, CRSPattern, CRSStatus
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +22,7 @@ def persist_crs_document(
     created_by: int,
     content: str,
     summary_points: Optional[List[str]] = None,
+    pattern: Optional[str] = None,
     field_sources: Optional[dict] = None,
     store_embedding: bool = True,
     force_draft: bool = False,
@@ -32,6 +33,7 @@ def persist_crs_document(
     Embedding storage is optional to allow tests to run without Chroma.
 
     Auto-increments the version number based on existing CRS documents for the project.
+    Pattern defaults to 'babok' if not specified.
     initial_status: Optional status to set (defaults to DRAFT)
     """
     summary_payload = summary_points or []
@@ -43,6 +45,12 @@ def persist_crs_document(
     latest = get_latest_crs(db, project_id=project_id)
     next_version = (latest.version + 1) if latest else 1
 
+    # Validate and set pattern, default to babok
+    try:
+        crs_pattern = CRSPattern(pattern or "babok")
+    except ValueError:
+        crs_pattern = CRSPattern.babok
+
     # Determine initial status
     status = initial_status if initial_status is not None else CRSStatus.draft
 
@@ -51,6 +59,7 @@ def persist_crs_document(
         created_by=created_by,
         content=content,
         summary_points=summary_as_text,
+        pattern=crs_pattern,
         field_sources=field_sources_text,
         version=next_version,
         edit_version=1,  # Initialize optimistic locking version
@@ -165,7 +174,9 @@ def get_crs_by_id(db: Session, *, crs_id: int) -> Optional[CRSDocument]:
     return db.query(CRSDocument).filter(CRSDocument.id == crs_id).first()
 
 
-async def generate_preview_crs(db: Session, *, session_id: int, user_id: int) -> dict:
+async def generate_preview_crs(
+    db: Session, *, session_id: int, user_id: int, pattern: Optional[str] = None
+) -> dict:
     """
     Generate a preview CRS from the current conversation state without persisting it.
 
@@ -176,6 +187,7 @@ async def generate_preview_crs(db: Session, *, session_id: int, user_id: int) ->
         db: Database session
         session_id: Chat session ID
         user_id: User ID making the request
+        pattern: CRS Pattern to use (babok, ieee_830, iso_iec_ieee_29148)
 
     Returns:
         dict: CRS preview data with completeness metadata
@@ -222,8 +234,12 @@ async def generate_preview_crs(db: Session, *, session_id: int, user_id: int) ->
         "",
     )
 
+    # If pattern is not provided, try to get it from the session
+    if not pattern and getattr(session, "crs_pattern", None):
+        pattern = session.crs_pattern
+
     # Initialize template filler
-    template_filler = LLMTemplateFiller()
+    template_filler = LLMTemplateFiller(pattern=pattern)
 
     # Generate CRS with non-strict mode (allows partial completion)
     result = template_filler.fill_template(

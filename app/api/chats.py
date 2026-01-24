@@ -97,6 +97,7 @@ def get_project_chats(
                 project_id=session.project_id,
                 user_id=session.user_id,
                 crs_document_id=session.crs_document_id,
+                crs_pattern=session.crs_pattern,
                 name=session.name,
                 status=session.status,
                 started_at=session.started_at,
@@ -129,6 +130,7 @@ def create_project_chat(
         project_id=project_id,
         user_id=current_user.id,
         crs_document_id=session_data.crs_document_id,
+        crs_pattern=session_data.crs_pattern.value if session_data.crs_pattern else "babok",
         name=session_data.name,
         status=SessionStatus.active,
     )
@@ -143,6 +145,7 @@ def create_project_chat(
         project_id=new_session.project_id,
         user_id=new_session.user_id,
         crs_document_id=new_session.crs_document_id,
+        crs_pattern=new_session.crs_pattern,
         name=new_session.name,
         status=new_session.status,
         started_at=new_session.started_at,
@@ -382,6 +385,7 @@ async def websocket_endpoint(
                 message_data = json.loads(data)
                 content = message_data.get("content", "").strip()
                 sender_type_str = message_data.get("sender_type", "client")
+                crs_pattern_from_message = message_data.get("crs_pattern")
 
                 if not content:
                     continue
@@ -447,6 +451,20 @@ async def websocket_endpoint(
                             history_strings.append(f"{role}: {msg.content}")
 
                         # Prepare state for AI
+                        # CRS pattern priority: message > existing CRS > default
+                        crs_pattern_value = "babok"  # default
+                        
+                        # If pattern was sent in message, use it
+                        if crs_pattern_from_message:
+                            crs_pattern_value = crs_pattern_from_message
+                        # Otherwise, get from the latest CRS for this chat session
+                        elif session.crs_document_id:
+                            crs_doc = db.query(CRSDocument).filter(
+                                CRSDocument.id == session.crs_document_id
+                            ).first()
+                            if crs_doc and crs_doc.pattern:
+                                crs_pattern_value = crs_doc.pattern.value
+                        
                         state = {
                             "user_input": content,
                             "conversation_history": history_strings,
@@ -455,6 +473,7 @@ async def websocket_endpoint(
                             "db": db,
                             "message_id": new_message.id,  # Pass message ID for memory linking
                             "user_id": user.id,
+                            "crs_pattern": crs_pattern_value,
                         }
 
                         # Invoke graph (using ainvoke if available, otherwise synchronous invoke)

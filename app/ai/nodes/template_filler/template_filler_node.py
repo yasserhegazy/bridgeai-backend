@@ -36,9 +36,10 @@ def template_filler_node(state: AgentState) -> Dict[str, Any]:
     db = state.get("db")
     project_id = state.get("project_id")
     user_id = state.get("user_id")
+    crs_pattern = state.get("crs_pattern")  # Get pattern from state
 
-    # Initialize the template filler
-    filler = LLMTemplateFiller()
+    # Initialize the template filler with pattern
+    filler = LLMTemplateFiller(pattern=crs_pattern)
 
     # Fill the CRS template
     result = filler.fill_template(
@@ -67,6 +68,7 @@ def template_filler_node(state: AgentState) -> Dict[str, Any]:
                 created_by=user_id,
                 content=result["crs_content"],
                 summary_points=result["summary_points"],
+                pattern=crs_pattern,
             )
 
         return {

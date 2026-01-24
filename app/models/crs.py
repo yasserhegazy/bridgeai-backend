@@ -13,6 +13,14 @@ class CRSStatus(enum.Enum):
     rejected = "rejected"
 
 
+class CRSPattern(enum.Enum):
+    """CRS Pattern/Standard selection for requirement documentation."""
+    iso_iec_ieee_29148 = "iso_iec_ieee_29148"
+    ieee_830 = "ieee_830"
+    babok = "babok"
+    agile_user_stories = "agile_user_stories"
+
+
 class CRSDocument(Base):
     __tablename__ = "crs_documents"
 
@@ -25,6 +33,9 @@ class CRSDocument(Base):
     )  # No index - rarely query by creator
     content = Column(Text)  # structured JSON/text
     summary_points = Column(Text)  # main points extracted from chat
+    pattern = Column(
+        Enum(CRSPattern), default=CRSPattern.babok
+    )  # CRS Standard/Pattern used
     field_sources = Column(
         Text, nullable=True
     )  # JSON mapping fields to sources (explicit_user_input vs llm_inference)
