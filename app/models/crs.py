@@ -32,6 +32,9 @@ class CRSDocument(Base):
     )  # No index - rarely query by creator
     content = Column(Text)  # structured JSON/text
     summary_points = Column(Text)  # main points extracted from chat
+    pattern = Column(
+        Enum(CRSPattern), default=CRSPattern.babok
+    )  # CRS Standard/Pattern used
     field_sources = Column(
         Text, nullable=True
     )  # JSON mapping fields to sources (explicit_user_input vs llm_inference)

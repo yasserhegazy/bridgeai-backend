@@ -20,6 +20,7 @@ class CRSPatternEnum(str, Enum):
     iso_iec_ieee_29148 = "iso_iec_ieee_29148"
     ieee_830 = "ieee_830"
     babok = "babok"
+    agile_user_stories = "agile_user_stories"
 
 
 # Message Schemas
@@ -49,7 +50,7 @@ class SessionBase(BaseModel):
 
 class SessionCreate(SessionBase):
     crs_document_id: Optional[int] = None
-
+    crs_pattern: Optional[CRSPatternEnum] = CRSPatternEnum.babok
 
 
 class SessionUpdate(BaseModel):
@@ -62,6 +63,7 @@ class SessionOut(BaseModel):
     project_id: int
     user_id: int
     crs_document_id: Optional[int] = None
+    crs_pattern: Optional[str] = None
     name: str
     status: SessionStatusEnum
 
@@ -78,6 +80,7 @@ class SessionListOut(BaseModel):
     project_id: int
     user_id: int
     crs_document_id: Optional[int] = None
+    crs_pattern: Optional[str] = None
     name: str
     status: SessionStatusEnum
 

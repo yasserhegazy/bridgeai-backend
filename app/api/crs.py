@@ -58,6 +58,9 @@ class CRSCreate(BaseModel):
         None, description="Completeness percentage for partial CRS"
     )
     session_id: Optional[int] = Field(None, description="Session ID to link the CRS to")
+    pattern: Optional[str] = Field(
+        None, description="CRS Pattern (babok, ieee_830, iso_iec_ieee_29148, agile_user_stories)"
+    )
 
 
 class CRSStatusUpdate(BaseModel):
@@ -159,6 +162,7 @@ def create_crs(
         summary_points=payload.summary_points,
         field_sources=getattr(payload, "field_sources", None),
         initial_status=initial_status,
+        pattern=payload.pattern,
     )
 
     # Link CRS to session if provided
@@ -344,6 +348,7 @@ def read_crs_for_session(
 )
 async def generate_draft_crs_from_session(
     session_id: int,
+    pattern: Optional[str] = Query(None, description="CRS Pattern (babok, ieee_830, iso_iec_ieee_29148)"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -367,9 +372,9 @@ async def generate_draft_crs_from_session(
     verify_team_membership(db, project.team_id, current_user.id)
 
     try:
-        # Generate preview first
+         # Generate preview first
         preview_data = await generate_preview_crs(
-            db=db, session_id=session_id, user_id=current_user.id
+            db=db, session_id=session_id, user_id=current_user.id, pattern=pattern
         )
 
         # Persist as draft CRS (force_draft=True bypasses completeness check)
@@ -439,6 +444,7 @@ async def generate_draft_crs_from_session(
 @router.get("/sessions/{session_id}/preview", response_model=CRSPreviewOut)
 async def preview_crs_for_session(
     session_id: int,
+    pattern: Optional[str] = Query(None, description="CRS Pattern (babok, ieee_830, iso_iec_ieee_29148)"),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -469,7 +475,7 @@ async def preview_crs_for_session(
 
     try:
         preview_data = await generate_preview_crs(
-            db=db, session_id=session_id, user_id=current_user.id
+            db=db, session_id=session_id, user_id=current_user.id, pattern=pattern
         )
         return CRSPreviewOut(**preview_data)
     except ValueError as e:

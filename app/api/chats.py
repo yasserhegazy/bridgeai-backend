@@ -97,6 +97,7 @@ def get_project_chats(
                 project_id=session.project_id,
                 user_id=session.user_id,
                 crs_document_id=session.crs_document_id,
+                crs_pattern=session.crs_pattern,
                 name=session.name,
                 status=session.status,
                 started_at=session.started_at,
@@ -129,6 +130,7 @@ def create_project_chat(
         project_id=project_id,
         user_id=current_user.id,
         crs_document_id=session_data.crs_document_id,
+        crs_pattern=session_data.crs_pattern.value if session_data.crs_pattern else "babok",
         name=session_data.name,
         status=SessionStatus.active,
     )
@@ -143,6 +145,7 @@ def create_project_chat(
         project_id=new_session.project_id,
         user_id=new_session.user_id,
         crs_document_id=new_session.crs_document_id,
+        crs_pattern=new_session.crs_pattern,
         name=new_session.name,
         status=new_session.status,
         started_at=new_session.started_at,
@@ -382,6 +385,7 @@ async def websocket_endpoint(
                 message_data = json.loads(data)
                 content = message_data.get("content", "").strip()
                 sender_type_str = message_data.get("sender_type", "client")
+                crs_pattern_from_message = message_data.get("crs_pattern")
 
                 if not content:
                     continue
