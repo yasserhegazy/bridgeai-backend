@@ -319,14 +319,14 @@ AGILE FOCUS AREAS:
 
 CRITICAL VOCABULARY ENFORCEMENT for AGILE:
 You MUST use the User Story Template:
-- **AS A**: The Role (Who is asking?)
-- **I WANT TO**: The Action (What are they doing?)
-- **SO THAT**: The Value (Why does this matter?)
+- **As a**: The Role (Who is asking?)
+- **I want to**: The Action (What are they doing?)
+- **So that**: The Value (Why does this matter?)
 
 You MUST use Gherkin Syntax for Acceptance Criteria:
-- **GIVEN**: The starting state
-- **WHEN**: The user action
-- **THEN**: The expected result
+- **Given**: The starting state
+- **When**: The user action
+- **Then**: The expected result
 
 CRITICAL INSTRUCTIONS:
 1. Do NOT use phrases like "The system shall"
@@ -369,7 +369,7 @@ Return ONLY a valid JSON object:
     "technical_constraints": ["Technical constraints"],
     "success_metrics": ["Key Result 1"],
     "acceptance_criteria": [
-        "**Scenario 1:**\\n**GIVEN** [Context]\\n**WHEN** [Action]\\n**THEN** [Outcome]"
+        "**Scenario 1:**\\n**Given** [Context]\\n**When** [Action]\\n**Then** [Outcome]"
     ],
     "assumptions": ["Assumption 1"],
     "risks": ["Risk 1"],
