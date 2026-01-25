@@ -11,7 +11,7 @@ from dataclasses import asdict, dataclass, field
 from typing import Any, Dict, Optional
 
 from langchain_core.prompts import ChatPromptTemplate
-from langchain_groq import ChatGroq
+from app.ai.llm_factory import get_template_filler_llm
 
 logger = logging.getLogger(__name__)
 
@@ -319,14 +319,14 @@ AGILE FOCUS AREAS:
 
 CRITICAL VOCABULARY ENFORCEMENT for AGILE:
 You MUST use the User Story Template:
-- **AS A**: The Role (Who is asking?)
-- **I WANT TO**: The Action (What are they doing?)
-- **SO THAT**: The Value (Why does this matter?)
+- **As a**: The Role (Who is asking?)
+- **I want to**: The Action (What are they doing?)
+- **So that**: The Value (Why does this matter?)
 
 You MUST use Gherkin Syntax for Acceptance Criteria:
-- **GIVEN**: The starting state
-- **WHEN**: The user action
-- **THEN**: The expected result
+- **Given**: The starting state
+- **When**: The user action
+- **Then**: The expected result
 
 CRITICAL INSTRUCTIONS:
 1. Do NOT use phrases like "The system shall"
@@ -369,7 +369,7 @@ Return ONLY a valid JSON object:
     "technical_constraints": ["Technical constraints"],
     "success_metrics": ["Key Result 1"],
     "acceptance_criteria": [
-        "**Scenario 1:**\\n**GIVEN** [Context]\\n**WHEN** [Action]\\n**THEN** [Outcome]"
+        "**Scenario 1:**\\n**Given** [Context]\\n**When** [Action]\\n**Then** [Outcome]"
     ],
     "assumptions": ["Assumption 1"],
     "risks": ["Risk 1"],
@@ -502,25 +502,16 @@ Return pure JSON now:
 
     def __init__(
         self,
-        model: str = "llama-3.3-70b-versatile",
-        temperature: float = 0.2,
         pattern: str = "babok",
     ):
         """
         Initialize the template filler with Groq LLM.
-
-        Args:
-            model: Groq model to use
-            temperature: Lower temperature for more consistent structured output
-            pattern: CRS pattern to use (babok, ieee_830, iso_iec_ieee_29148)
+        
+        Model configuration is now centralized in app.core.config.
+        To change the model, update the LLM_TEMPLATE_FILLER_MODEL setting in your .env file.
         """
-        api_key = os.getenv("GROQ_API_KEY")
-        if not api_key:
-            raise ValueError("GROQ_API_KEY missing in environment.")
-
-        self.llm = ChatGroq(
-            model=model, groq_api_key=api_key, temperature=temperature, max_tokens=4096
-        )
+        # Use centralized LLM factory
+        self.llm = get_template_filler_llm()
 
         if pattern:
             self.pattern = str(pattern).lower().replace(" ", "_").replace("-", "_")
