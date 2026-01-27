@@ -1,0 +1,171 @@
+﻿============================= test session starts =============================
+platform win32 -- Python 3.13.0, pytest-9.0.1, pluggy-1.6.0
+rootdir: C:\Users\pc\Documents\University\Graduation Project\Code\bridgeai-backend
+configfile: pytest.ini
+plugins: anyio-4.11.0, langsmith-0.4.41
+collected 3 items
+
+tests\api\test_crs_update.py EEE                                         [100%]
+
+=================================== ERRORS ====================================
+__________________ ERROR at setup of test_update_crs_content __________________
+file C:\Users\pc\Documents\University\Graduation Project\Code\bridgeai-backend\tests\api\test_crs_update.py, line 9
+  def test_update_crs_content(client, db, normal_user_token, create_project, create_user):
+E       fixture 'normal_user_token' not found
+>       available fixtures: another_client_auth_headers, anyio_backend, anyio_backend_name, anyio_backend_options, ba_auth_headers, ba_token, ba_user, cache, capfd, capfdbinary, caplog, capsys, capsysbinary, capteesys, client, client_auth_headers, client_token, client_user, db, doctest_namespace, free_tcp_port, free_tcp_port_factory, free_udp_port, free_udp_port_factory, monkeypatch, pytestconfig, rate_limit_ba_auth_headers, rate_limit_client, rate_limit_client_auth_headers, record_property, record_testsuite_property, record_xml_attribute, recwarn, sample_crs, sample_project, sample_team, subtests, test_another_client_user, test_ba_user, test_client_user, tmp_path, tmp_path_factory, tmpdir, tmpdir_factory
+>       use 'pytest --fixtures [testpath]' for help on them.
+
+C:\Users\pc\Documents\University\Graduation Project\Code\bridgeai-backend\tests\api\test_crs_update.py:9
+_____________ ERROR at setup of test_update_crs_content_conflict ______________
+file C:\Users\pc\Documents\University\Graduation Project\Code\bridgeai-backend\tests\api\test_crs_update.py, line 48
+  def test_update_crs_content_conflict(client, db, normal_user_token, create_project, create_user):
+E       fixture 'normal_user_token' not found
+>       available fixtures: another_client_auth_headers, anyio_backend, anyio_backend_name, anyio_backend_options, ba_auth_headers, ba_token, ba_user, cache, capfd, capfdbinary, caplog, capsys, capsysbinary, capteesys, client, client_auth_headers, client_token, client_user, db, doctest_namespace, free_tcp_port, free_tcp_port_factory, free_udp_port, free_udp_port_factory, monkeypatch, pytestconfig, rate_limit_ba_auth_headers, rate_limit_client, rate_limit_client_auth_headers, record_property, record_testsuite_property, record_xml_attribute, recwarn, sample_crs, sample_project, sample_team, subtests, test_another_client_user, test_ba_user, test_client_user, tmp_path, tmp_path_factory, tmpdir, tmpdir_factory
+>       use 'pytest --fixtures [testpath]' for help on them.
+
+C:\Users\pc\Documents\University\Graduation Project\Code\bridgeai-backend\tests\api\test_crs_update.py:48
+______________ ERROR at setup of test_update_crs_approved_fails _______________
+file C:\Users\pc\Documents\University\Graduation Project\Code\bridgeai-backend\tests\api\test_crs_update.py, line 75
+  def test_update_crs_approved_fails(client, db, normal_user_token, create_project, create_user):
+E       fixture 'normal_user_token' not found
+>       available fixtures: another_client_auth_headers, anyio_backend, anyio_backend_name, anyio_backend_options, ba_auth_headers, ba_token, ba_user, cache, capfd, capfdbinary, caplog, capsys, capsysbinary, capteesys, client, client_auth_headers, client_token, client_user, db, doctest_namespace, free_tcp_port, free_tcp_port_factory, free_udp_port, free_udp_port_factory, monkeypatch, pytestconfig, rate_limit_ba_auth_headers, rate_limit_client, rate_limit_client_auth_headers, record_property, record_testsuite_property, record_xml_attribute, recwarn, sample_crs, sample_project, sample_team, subtests, test_another_client_user, test_ba_user, test_client_user, tmp_path, tmp_path_factory, tmpdir, tmpdir_factory
+>       use 'pytest --fixtures [testpath]' for help on them.
+
+C:\Users\pc\Documents\University\Graduation Project\Code\bridgeai-backend\tests\api\test_crs_update.py:75
+============================== warnings summary ===============================
+app\db\session.py:22
+  C:\Users\pc\Documents\University\Graduation Project\Code\bridgeai-backend\app\db\session.py:22: MovedIn20Warning: The ``declarative_base()`` function is now available as sqlalchemy.orm.declarative_base(). (deprecated since: 2.0) (Background on SQLAlchemy 2.0 at: https://sqlalche.me/e/b8d9)
+    Base = declarative_base()
+
+app\schemas\user.py:21
+  C:\Users\pc\Documents\University\Graduation Project\Code\bridgeai-backend\app\schemas\user.py:21: PydanticDeprecatedSince20: Pydantic V1 style `@validator` validators are deprecated. You should migrate to Pydantic V2 style `@field_validator` validators, see the migration guide for more details. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    @validator("full_name")
+
+app\schemas\user.py:32
+  C:\Users\pc\Documents\University\Graduation Project\Code\bridgeai-backend\app\schemas\user.py:32: PydanticDeprecatedSince20: Pydantic V1 style `@validator` validators are deprecated. You should migrate to Pydantic V2 style `@field_validator` validators, see the migration guide for more details. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    @validator("password")
+
+app\schemas\project.py:15
+  C:\Users\pc\Documents\University\Graduation Project\Code\bridgeai-backend\app\schemas\project.py:15: PydanticDeprecatedSince20: Pydantic V1 style `@validator` validators are deprecated. You should migrate to Pydantic V2 style `@field_validator` validators, see the migration guide for more details. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    @validator("name")
+
+app\schemas\project.py:26
+  C:\Users\pc\Documents\University\Graduation Project\Code\bridgeai-backend\app\schemas\project.py:26: PydanticDeprecatedSince20: Pydantic V1 style `@validator` validators are deprecated. You should migrate to Pydantic V2 style `@field_validator` validators, see the migration guide for more details. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    @validator("description")
+
+app\schemas\project.py:43
+  C:\Users\pc\Documents\University\Graduation Project\Code\bridgeai-backend\app\schemas\project.py:43: PydanticDeprecatedSince20: Pydantic V1 style `@validator` validators are deprecated. You should migrate to Pydantic V2 style `@field_validator` validators, see the migration guide for more details. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    @validator("name")
+
+app\schemas\project.py:55
+  C:\Users\pc\Documents\University\Graduation Project\Code\bridgeai-backend\app\schemas\project.py:55: PydanticDeprecatedSince20: Pydantic V1 style `@validator` validators are deprecated. You should migrate to Pydantic V2 style `@field_validator` validators, see the migration guide for more details. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    @validator("description")
+
+app\schemas\project.py:66
+  C:\Users\pc\Documents\University\Graduation Project\Code\bridgeai-backend\app\schemas\project.py:66: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class ProjectOut(BaseModel):
+
+app\schemas\project.py:96
+  C:\Users\pc\Documents\University\Graduation Project\Code\bridgeai-backend\app\schemas\project.py:96: PydanticDeprecatedSince20: Pydantic V1 style `@validator` validators are deprecated. You should migrate to Pydantic V2 style `@field_validator` validators, see the migration guide for more details. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    @validator("rejection_reason")
+
+app\schemas\chat.py:36
+  C:\Users\pc\Documents\University\Graduation Project\Code\bridgeai-backend\app\schemas\chat.py:36: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class MessageOut(MessageBase):
+
+app\schemas\chat.py:61
+  C:\Users\pc\Documents\University\Graduation Project\Code\bridgeai-backend\app\schemas\chat.py:61: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class SessionOut(BaseModel):
+
+app\schemas\chat.py:78
+  C:\Users\pc\Documents\University\Graduation Project\Code\bridgeai-backend\app\schemas\chat.py:78: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class SessionListOut(BaseModel):
+
+app\api\comments.py:28
+  C:\Users\pc\Documents\University\Graduation Project\Code\bridgeai-backend\app\api\comments.py:28: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class CommentOut(BaseModel):
+
+venv\Lib\site-packages\pydantic\_internal\_config.py:383
+venv\Lib\site-packages\pydantic\_internal\_config.py:383
+  C:\Users\pc\Documents\University\Graduation Project\Code\bridgeai-backend\venv\Lib\site-packages\pydantic\_internal\_config.py:383: UserWarning: Valid config keys have changed in V2:
+  * 'orm_mode' has been renamed to 'from_attributes'
+    warnings.warn(message, UserWarning)
+
+app\api\crs.py:79
+  C:\Users\pc\Documents\University\Graduation Project\Code\bridgeai-backend\app\api\crs.py:79: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class CRSOut(BaseModel):
+
+app\api\crs.py:99
+  C:\Users\pc\Documents\University\Graduation Project\Code\bridgeai-backend\app\api\crs.py:99: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class AuditLogOut(BaseModel):
+
+app\schemas\invitation.py:13
+  C:\Users\pc\Documents\University\Graduation Project\Code\bridgeai-backend\app\schemas\invitation.py:13: PydanticDeprecatedSince20: Pydantic V1 style `@validator` validators are deprecated. You should migrate to Pydantic V2 style `@field_validator` validators, see the migration guide for more details. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    @validator("email")
+
+app\schemas\invitation.py:21
+  C:\Users\pc\Documents\University\Graduation Project\Code\bridgeai-backend\app\schemas\invitation.py:21: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class InvitationOut(BaseModel):
+
+app\schemas\invitation.py:38
+  C:\Users\pc\Documents\University\Graduation Project\Code\bridgeai-backend\app\schemas\invitation.py:38: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class InvitationPublicOut(BaseModel):
+
+app\schemas\notification.py:16
+  C:\Users\pc\Documents\University\Graduation Project\Code\bridgeai-backend\app\schemas\notification.py:16: PydanticDeprecatedSince20: Pydantic V1 style `@validator` validators are deprecated. You should migrate to Pydantic V2 style `@field_validator` validators, see the migration guide for more details. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    @validator("title", "message")
+
+app\schemas\notification.py:32
+  C:\Users\pc\Documents\University\Graduation Project\Code\bridgeai-backend\app\schemas\notification.py:32: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class NotificationResponse(NotificationBase):
+
+app\schemas\team.py:23
+  C:\Users\pc\Documents\University\Graduation Project\Code\bridgeai-backend\app\schemas\team.py:23: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class UserInfo(BaseModel):
+
+app\schemas\team.py:38
+  C:\Users\pc\Documents\University\Graduation Project\Code\bridgeai-backend\app\schemas\team.py:38: PydanticDeprecatedSince20: Pydantic V1 style `@validator` validators are deprecated. You should migrate to Pydantic V2 style `@field_validator` validators, see the migration guide for more details. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    @validator("name")
+
+app\schemas\team.py:49
+  C:\Users\pc\Documents\University\Graduation Project\Code\bridgeai-backend\app\schemas\team.py:49: PydanticDeprecatedSince20: Pydantic V1 style `@validator` validators are deprecated. You should migrate to Pydantic V2 style `@field_validator` validators, see the migration guide for more details. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    @validator("description")
+
+app\schemas\team.py:65
+  C:\Users\pc\Documents\University\Graduation Project\Code\bridgeai-backend\app\schemas\team.py:65: PydanticDeprecatedSince20: Pydantic V1 style `@validator` validators are deprecated. You should migrate to Pydantic V2 style `@field_validator` validators, see the migration guide for more details. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    @validator("name")
+
+app\schemas\team.py:77
+  C:\Users\pc\Documents\University\Graduation Project\Code\bridgeai-backend\app\schemas\team.py:77: PydanticDeprecatedSince20: Pydantic V1 style `@validator` validators are deprecated. You should migrate to Pydantic V2 style `@field_validator` validators, see the migration guide for more details. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    @validator("description")
+
+app\schemas\team.py:87
+  C:\Users\pc\Documents\University\Graduation Project\Code\bridgeai-backend\app\schemas\team.py:87: PydanticDeprecatedSince20: Pydantic V1 style `@root_validator` validators are deprecated. You should migrate to Pydantic V2 style `@model_validator` validators, see the migration guide for more details. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    @root_validator(pre=True)
+
+app\schemas\team.py:106
+  C:\Users\pc\Documents\University\Graduation Project\Code\bridgeai-backend\app\schemas\team.py:106: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class ProjectSimpleOut(BaseModel):
+
+app\schemas\team.py:117
+  C:\Users\pc\Documents\University\Graduation Project\Code\bridgeai-backend\app\schemas\team.py:117: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class TeamMemberOut(BaseModel):
+
+app\schemas\team.py:128
+  C:\Users\pc\Documents\University\Graduation Project\Code\bridgeai-backend\app\schemas\team.py:128: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class TeamOut(BaseModel):
+
+app\schemas\team.py:143
+  C:\Users\pc\Documents\University\Graduation Project\Code\bridgeai-backend\app\schemas\team.py:143: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class TeamListOut(BaseModel):
+
+app\schemas\team.py:167
+  C:\Users\pc\Documents\University\Graduation Project\Code\bridgeai-backend\app\schemas\team.py:167: PydanticDeprecatedSince20: Support for class-based `config` is deprecated, use ConfigDict instead. Deprecated in Pydantic V2.0 to be removed in V3.0. See Pydantic V2 Migration Guide at https://errors.pydantic.dev/2.12/migration/
+    class TeamMemberDetailOut(BaseModel):
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ===========================
+ERROR tests/api/test_crs_update.py::test_update_crs_content
+ERROR tests/api/test_crs_update.py::test_update_crs_content_conflict
+ERROR tests/api/test_crs_update.py::test_update_crs_approved_fails
+======================= 33 warnings, 3 errors in 7.40s ========================

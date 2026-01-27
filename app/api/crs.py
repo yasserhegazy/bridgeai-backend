@@ -27,6 +27,8 @@ from app.services.crs_service import (
     get_crs_versions,
     get_latest_crs,
     persist_crs_document,
+    persist_crs_document,
+    update_crs_content,
     update_crs_status,
 )
 from app.services.export_service import (
@@ -637,14 +639,24 @@ def list_my_crs_requests(
         except Exception:
             summary_points = []
 
+        try:
+            field_sources_data = (
+                json.loads(crs.field_sources) if crs.field_sources else None
+            )
+        except Exception:
+            field_sources_data = None
+
         result.append(
             CRSOut(
                 id=crs.id,
                 project_id=crs.project_id,
                 status=crs.status.value,
+                pattern=crs.pattern if hasattr(crs, 'pattern') and crs.pattern else "babok",
                 version=crs.version,
+                edit_version=crs.edit_version if hasattr(crs, 'edit_version') and crs.edit_version is not None else 1,
                 content=crs.content,
                 summary_points=summary_points,
+                field_sources=field_sources_data,
                 created_by=crs.created_by,
                 approved_by=crs.approved_by,
                 rejection_reason=crs.rejection_reason,
@@ -677,14 +689,24 @@ def read_crs_versions(
             )
         except Exception:
             summary_points = []
+        try:
+            field_sources_data = (
+                json.loads(crs.field_sources) if crs.field_sources else None
+            )
+        except Exception:
+            field_sources_data = None
+            
         result.append(
             CRSOut(
                 id=crs.id,
                 project_id=crs.project_id,
                 status=crs.status.value,
+                pattern=crs.pattern if hasattr(crs, 'pattern') and crs.pattern else "babok",
                 version=crs.version,
+                edit_version=crs.edit_version if hasattr(crs, 'edit_version') and crs.edit_version is not None else 1,
                 content=crs.content,
                 summary_points=summary_points,
+                field_sources=field_sources_data,
                 created_by=crs.created_by,
                 approved_by=crs.approved_by,
                 rejection_reason=crs.rejection_reason,
@@ -731,7 +753,7 @@ def read_crs(
         status=crs.status.value,
         pattern=crs.pattern.value if crs.pattern else "babok",
         version=crs.version,
-        edit_version=crs.edit_version,
+        edit_version=crs.edit_version if hasattr(crs, 'edit_version') and crs.edit_version is not None else 1,
         content=crs.content,
         summary_points=summary_points,
         field_sources=field_sources_data,
@@ -915,6 +937,105 @@ def get_crs_audit_logs(
         }
         for log in logs
     ]
+
+
+class CRSContentUpdate(BaseModel):
+    """Schema for updating CRS content directly."""
+    content: str = Field(..., description="Full JSON content of the CRS")
+    expected_version: Optional[int] = Field(
+        None, description="Expected edit_version for optimistic locking"
+    )
+    field_sources: Optional[dict] = Field(
+        None, description="Updated field sources if any"
+    )
+
+
+@router.put("/{crs_id}/content", response_model=CRSOut)
+def update_crs_content_endpoint(
+    crs_id: int,
+    payload: CRSContentUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Update the content of a CRS document.
+    
+    This endpoint is used for the in-place editor.
+    Performs optimistic locking if expected_version is provided.
+    """
+    # Get CRS and verify access
+    crs = db.query(CRSDocument).filter(CRSDocument.id == crs_id).first()
+    if not crs:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="CRS document not found"
+        )
+
+    project = get_project_or_404(db, crs.project_id)
+    verify_team_membership(db, project.team_id, current_user.id)
+
+    # Allow updates only if not in finalized state (approved)
+    # Re-opening rejected ones is fine, but approved ones should probably require a status change first
+    if crs.status == CRSStatus.approved:
+         raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, 
+            detail="Cannot edit an approved CRS. Please change status to 'under review' or 'draft' first."
+        )
+
+    try:
+        updated_crs = update_crs_content(
+            db,
+            crs_id=crs_id,
+            content=payload.content,
+            field_sources=payload.field_sources,
+            expected_version=payload.expected_version,
+        )
+        
+        # Create audit log for content update
+        audit_entry = CRSAuditLog(
+            crs_id=crs.id,
+            changed_by=current_user.id,
+            action="content_update",
+            new_content=payload.content,
+            summary=f"CRS content updated by {current_user.email}",
+        )
+        db.add(audit_entry)
+        db.commit()
+        
+        # Helper to parse fields for response
+        try:
+            summary_points = json.loads(crs.summary_points) if crs.summary_points else []
+        except Exception:
+            summary_points = []
+
+        try:
+            field_sources_data = (
+                json.loads(crs.field_sources) if crs.field_sources else None
+            )
+        except Exception:
+            field_sources_data = None
+
+        return CRSOut(
+            id=updated_crs.id,
+            project_id=updated_crs.project_id,
+            status=updated_crs.status.value,
+            pattern=updated_crs.pattern.value if updated_crs.pattern else "babok",
+            version=updated_crs.version,
+            edit_version=updated_crs.edit_version,
+            content=updated_crs.content,
+            summary_points=summary_points,
+            field_sources=field_sources_data,
+            created_by=updated_crs.created_by,
+            approved_by=updated_crs.approved_by,
+            rejection_reason=updated_crs.rejection_reason,
+            reviewed_at=updated_crs.reviewed_at,
+            created_at=updated_crs.created_at,
+        )
+
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=str(e)
+        )
 
 
 @router.post("/{crs_id}/export")
