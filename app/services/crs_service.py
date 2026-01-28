@@ -275,3 +275,55 @@ async def generate_preview_crs(
         "project_id": session.project_id,
         "session_id": session_id,
     }
+
+
+def update_crs_content(
+    db: Session,
+    *,
+    crs_id: int,
+    content: str,
+    field_sources: Optional[dict] = None,
+    expected_version: Optional[int] = None,
+) -> CRSDocument:
+    """
+    Update the content of a CRS document with optimistic locking support.
+
+    Args:
+        db: Database session
+        crs_id: ID of the CRS document to update
+        content: New content (JSON string)
+        field_sources: Optional dict mapping fields to sources
+        expected_version: Expected edit_version for optimistic locking (optional)
+
+    Returns:
+        Updated CRSDocument object
+
+    Raises:
+        ValueError: If CRS not found or version mismatch
+    """
+    crs = db.query(CRSDocument).filter(CRSDocument.id == crs_id).first()
+    if not crs:
+        raise ValueError(f"CRS document with id={crs_id} not found")
+
+    # Optimistic locking check
+    if expected_version is not None and crs.edit_version != expected_version:
+        raise ValueError(
+            f"CRS document was modified by another user. "
+            f"Expected version {expected_version}, but current version is {crs.edit_version}. "
+            f"Please refresh and try again."
+        )
+
+    crs.content = content
+    if field_sources is not None:
+        crs.field_sources = json.dumps(field_sources)
+    
+    crs.edit_version += 1  # Increment version for next update
+    
+    # If the CRS was approved/rejected, moving it back to draft/under_review might be needed
+    # depending on business logic. For now, we allow content updates in any status 
+    # but typically this should only happen in Draft or maybe Under Review.
+    # The API layer should enforce status checks.
+
+    db.commit()
+    db.refresh(crs)
+    return crs
