@@ -176,3 +176,39 @@ class TeamMemberDetailOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# Dashboard statistics schemas
+class StatusBreakdown(BaseModel):
+    """Generic status breakdown with counts"""
+    total: int = 0
+    by_status: Dict[str, int] = {}
+
+
+class ProjectStats(BaseModel):
+    """Project statistics for dashboard"""
+    total: int = 0
+    by_status: Dict[str, int] = {}
+
+
+class ChatStats(BaseModel):
+    """Chat statistics for dashboard"""
+    total: int = 0
+    by_status: Dict[str, int] = {}
+
+
+class CRSStats(BaseModel):
+    """CRS statistics for dashboard"""
+    total: int = 0
+    by_status: Dict[str, int] = {}
+
+
+class TeamDashboardStatsOut(BaseModel):
+    """Team dashboard aggregated statistics"""
+    projects: ProjectStats
+    chats: ChatStats
+    crs: CRSStats
+    recent_projects: List[ProjectSimpleOut] = []
+
+    class Config:
+        from_attributes = True

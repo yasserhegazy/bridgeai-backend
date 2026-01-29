@@ -1,6 +1,6 @@
 import re
 from datetime import datetime
-from typing import Optional
+from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field, validator
 
@@ -103,3 +103,51 @@ class ProjectRejectionRequest(BaseModel):
             if re.search(pattern, v, re.IGNORECASE):
                 raise ValueError("Rejection reason contains invalid content")
         return v
+
+
+# Dashboard statistics schemas
+class SessionSimpleOut(BaseModel):
+    """Simple session schema for recent chats"""
+    id: int
+    name: str
+    status: str
+    started_at: datetime
+    ended_at: Optional[datetime] = None
+    message_count: int = 0
+
+    class Config:
+        from_attributes = True
+
+
+class LatestCRSOut(BaseModel):
+    """Latest CRS summary for dashboard"""
+    id: int
+    version: int
+    status: str
+    pattern: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class ProjectDashboardStatsOut(BaseModel):
+    """Project dashboard aggregated statistics"""
+    chats: Dict[str, Any] = {
+        "total": 0,
+        "by_status": {},
+        "total_messages": 0
+    }
+    crs: Dict[str, Any] = {
+        "total": 0,
+        "by_status": {},
+        "latest": None,
+        "version_count": 0
+    }
+    documents: Dict[str, int] = {
+        "total": 0
+    }
+    recent_chats: List[SessionSimpleOut] = []
+
+    class Config:
+        from_attributes = True
