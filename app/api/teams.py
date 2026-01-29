@@ -864,7 +864,7 @@ def get_team_dashboard_stats(
         }
         crs_stats["total"] = sum(crs_stats["by_status"].values())
     
-    # Get top 10 recent projects
+    # Get top 3 recent projects for dashboard
     recent_projects = (
         db.query(Project)
         .filter(Project.team_id == team_id)

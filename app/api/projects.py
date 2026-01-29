@@ -9,6 +9,7 @@ from app.db.session import get_db
 from app.models.notification import Notification, NotificationType
 from app.models.project import Project, ProjectStatus
 from app.models.session_model import SessionModel
+from app.models.message import Message
 from app.models.crs import CRSDocument
 from app.models.ai_memory_index import AIMemoryIndex
 from app.models.team import Team, TeamMember, TeamRole
@@ -482,9 +483,15 @@ def get_project_dashboard_stats(
     chat_total = sum(chat_by_status.values())
     
     # Calculate total messages across all chats
-    total_messages = (
-        db.query(func.count(SessionModel.id))
+    # Get session IDs for this project, then count messages
+    session_ids = (
+        db.query(SessionModel.id)
         .filter(SessionModel.project_id == project_id)
+        .subquery()
+    )
+    total_messages = (
+        db.query(func.count(Message.id))
+        .filter(Message.session_id.in_(session_ids))
         .scalar() or 0
     )
     
@@ -542,8 +549,9 @@ def get_project_dashboard_stats(
             SessionModel.status,
             SessionModel.started_at,
             SessionModel.ended_at,
-            func.count(SessionModel.id).label('message_count')
+            func.count(Message.id).label('message_count')
         )
+        .outerjoin(Message, Message.session_id == SessionModel.id)
         .filter(SessionModel.project_id == project_id)
         .group_by(SessionModel.id)
         .order_by(SessionModel.started_at.desc())
