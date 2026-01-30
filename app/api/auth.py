@@ -10,7 +10,7 @@ from app.schemas.token import Token
 from app.schemas.user import UserCreate, UserOut
 from app.utils.hash import hash_password, verify_password
 
-router = APIRouter(prefix="/auth", tags=["Authentication"])
+router = APIRouter(tags=["Authentication"])
 
 
 @router.post("/register", response_model=UserOut)

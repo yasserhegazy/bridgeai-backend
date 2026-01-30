@@ -9,7 +9,7 @@ from app.core.config import settings
 from app.db.session import get_db
 from app.models.user import User, UserRole
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/token")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/token")
 
 
 def create_access_token(data: dict, expires_delta: timedelta | None = None):
