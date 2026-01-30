@@ -1,0 +1,36 @@
+# Development Dockerfile with hot-reload
+FROM python:3.11-slim
+
+# Build argument to control dependency caching
+ARG REBUILD_DEPS=false
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    g++ \
+    default-libmysqlclient-dev \
+    pkg-config \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements
+COPY requirements.txt .
+
+# Install Python dependencies with conditional caching
+RUN if [ "$REBUILD_DEPS" = "true" ]; then \
+        pip install --no-cache-dir --force-reinstall -r requirements.txt; \
+    else \
+        pip install --no-cache-dir -r requirements.txt; \
+    fi
+
+# Copy application code
+COPY . .
+
+# Create ChromaDB directory
+RUN mkdir -p /app/chroma_data
+
+EXPOSE 8000
+
+# Development server with auto-reload
+CMD ["sh", "-c", "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"]

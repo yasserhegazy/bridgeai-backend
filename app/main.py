@@ -106,3 +106,9 @@ app.include_router(memory.router)
 @app.get("/")
 def root():
     return {"status": "alive", "version": __version__}
+
+
+@app.get("/health")
+def health_check():
+    """Health check endpoint for Docker and monitoring"""
+    return {"status": "healthy", "version": __version__}
