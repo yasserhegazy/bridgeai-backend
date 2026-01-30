@@ -24,8 +24,9 @@ Thumbs.db
 # Logs
 *.log
 
-# ChromaDB local database
+# ChromaDB data directories
 chroma_db/
+chroma_data/
 
 # Tool caches
 .mypy_cache/
