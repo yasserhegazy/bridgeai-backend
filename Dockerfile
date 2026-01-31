@@ -1,5 +1,8 @@
 # Backend Dockerfile for FastAPI
-FROM python:3.11-slim
+FROM python:3.12-slim
+
+# Avoid debconf warnings
+ENV DEBIAN_FRONTEND=noninteractive
 
 # Build argument to control dependency caching
 # Set to "false" for local dev (uses cache), "true" for VPS (rebuilds)
@@ -8,12 +11,17 @@ ARG REBUILD_DEPS=false
 # Set working directory
 WORKDIR /app
 
-# Install system dependencies
+# Install system dependencies including cairo for PDF generation
 RUN apt-get update && apt-get install -y \
     gcc \
     g++ \
     default-libmysqlclient-dev \
     pkg-config \
+    libcairo2-dev \
+    libpango1.0-dev \
+    libgdk-pixbuf-2.0-dev \
+    libffi-dev \
+    shared-mime-info \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy requirements first for better caching

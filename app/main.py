@@ -16,6 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from fastapi.responses import JSONResponse  # noqa: E402
 from slowapi.errors import RateLimitExceeded  # noqa: E402
 from starlette.middleware.base import BaseHTTPMiddleware  # noqa: E402
+from uvicorn.middleware.proxy_headers import ProxyHeadersMiddleware  # noqa: E402
 
 from app import __version__  # noqa: E402
 from app.ai.chroma_manager import initialize_chroma  # noqa: E402
@@ -98,9 +99,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Trust proxy headers (X-Forwarded-Proto, X-Forwarded-For) from nginx
+# This ensures redirects use HTTPS when behind a reverse proxy
+app.add_middleware(ProxyHeadersMiddleware, trusted_hosts=["*"])
+
 app.include_router(api_router, prefix="/api")
-app.include_router(auth.router)
-app.include_router(memory.router)
 
 
 @app.get("/")
