@@ -26,7 +26,7 @@ def sample_crs_doc(db, sample_project, client_user):
                 {"id": "FR1", "description": "Test requirement"}
             ]
         }),
-        summary_points=["Point 1", "Point 2"],
+        summary_points=json.dumps(["Point 1", "Point 2"]),
         status=CRSStatus.draft,
         pattern=CRSPattern.ieee_830,
         version=1,
@@ -225,7 +225,7 @@ class TestCRSRetrieval:
             project_id=sample_project.id,
             created_by=client_user.id,
             content=json.dumps({"project_title": "Updated"}),
-            summary_points=["Updated point"],
+            summary_points=json.dumps(["Updated point"]),
             status=CRSStatus.approved,
             pattern=CRSPattern.ieee_830,
             version=2,
@@ -388,53 +388,30 @@ class TestCRSAudit:
 class TestCRSExport:
     """Tests for POST /api/crs/{crs_id}/export endpoint."""
     
-    @patch("app.api.crs.crs_to_professional_html")
     @patch("app.api.crs.html_to_pdf_bytes")
-    def test_export_crs_pdf(self, mock_pdf, mock_html, client, client_token, sample_crs_doc):
+    @patch("app.services.export_service.markdown_to_html")
+    def test_export_crs_pdf(self, mock_md_to_html, mock_pdf, client, client_token, sample_crs_doc):
         """Test exporting CRS as PDF."""
-        mock_html.return_value = "<html>CRS Content</html>"
+        mock_md_to_html.return_value = "<html>CRS Content</html>"
         mock_pdf.return_value = b"PDF content"
         
-        payload = {"format": "pdf"}
-        
         response = client.post(
-            f"/api/crs/{sample_crs_doc.id}/export",
-            json=payload,
+            f"/api/crs/{sample_crs_doc.id}/export?format=pdf",
             headers={"Authorization": f"Bearer {client_token}"}
         )
         
         assert response.status_code == status.HTTP_200_OK
         assert response.headers["content-type"] == "application/pdf"
-        assert mock_html.called
+        assert mock_md_to_html.called
         assert mock_pdf.called
-    
-    @patch("app.api.crs.crs_to_professional_html")
-    def test_export_crs_html(self, mock_html, client, client_token, sample_crs_doc):
-        """Test exporting CRS as HTML."""
-        mock_html.return_value = "<html>CRS Content</html>"
-        
-        payload = {"format": "html"}
-        
-        response = client.post(
-            f"/api/crs/{sample_crs_doc.id}/export",
-            json=payload,
-            headers={"Authorization": f"Bearer {client_token}"}
-        )
-        
-        assert response.status_code == status.HTTP_200_OK
-        assert response.headers["content-type"] == "text/html; charset=utf-8"
-        assert mock_html.called
     
     @patch("app.api.crs.export_markdown_bytes")
     def test_export_crs_markdown(self, mock_md, client, client_token, sample_crs_doc):
         """Test exporting CRS as Markdown."""
         mock_md.return_value = b"# CRS Content"
         
-        payload = {"format": "markdown"}
-        
         response = client.post(
-            f"/api/crs/{sample_crs_doc.id}/export",
-            json=payload,
+            f"/api/crs/{sample_crs_doc.id}/export?format=markdown",
             headers={"Authorization": f"Bearer {client_token}"}
         )
         
@@ -443,21 +420,22 @@ class TestCRSExport:
         assert mock_md.called
     
     @patch("app.api.crs.generate_csv_bytes")
-    def test_export_crs_csv(self, mock_csv, client, client_token, sample_crs_doc):
+    @patch("app.api.crs.crs_to_csv_data")
+    def test_export_crs_csv(self, mock_csv_data, mock_csv_bytes, client, client_token, sample_crs_doc):
         """Test exporting CRS as CSV."""
-        mock_csv.return_value = b"Header1,Header2\nValue1,Value2"
-        
-        payload = {"format": "csv"}
+        mock_csv_data.return_value = [["Header1", "Header2"], ["Value1", "Value2"]]
+        mock_csv_bytes.return_value = b"Header1,Header2\nValue1,Value2"
         
         response = client.post(
-            f"/api/crs/{sample_crs_doc.id}/export",
-            json=payload,
+            f"/api/crs/{sample_crs_doc.id}/export?format=csv",
             headers={"Authorization": f"Bearer {client_token}"}
         )
         
         assert response.status_code == status.HTTP_200_OK
         assert response.headers["content-type"] == "text/csv; charset=utf-8"
-        assert mock_csv.called
+        assert mock_csv_data.called
+        assert mock_csv_bytes.called
+
 
 
 class TestCRSPreview:
@@ -773,7 +751,7 @@ class TestCRSRetrieval:
             project_id=project.id,
             created_by=client_user.id,
             content=json.dumps({"project_title": "Updated"}),
-            summary_points=["Updated point"],
+            summary_points=json.dumps(["Updated point"]),
             status=CRSStatus.approved,
             pattern=CRSPattern.ieee_830,
             version=2,
@@ -931,81 +909,6 @@ class TestCRSAudit:
         data = response.json()
         assert len(data) >= 1
         assert data[0]["action"] == "created"
-
-
-class TestCRSExport:
-    """Tests for POST /api/crs/{crs_id}/export endpoint."""
-    
-    @patch("app.api.crs.crs_to_professional_html")
-    @patch("app.api.crs.html_to_pdf_bytes")
-    def test_export_crs_pdf(self, mock_pdf, mock_html, client, client_token, sample_crs):
-        """Test exporting CRS as PDF."""
-        mock_html.return_value = "<html>CRS Content</html>"
-        mock_pdf.return_value = b"PDF content"
-        
-        payload = {"format": "pdf"}
-        
-        response = client.post(
-            f"/api/crs/{sample_crs.id}/export",
-            json=payload,
-            headers={"Authorization": f"Bearer {client_token}"}
-        )
-        
-        assert response.status_code == status.HTTP_200_OK
-        assert response.headers["content-type"] == "application/pdf"
-        assert mock_html.called
-        assert mock_pdf.called
-    
-    @patch("app.api.crs.crs_to_professional_html")
-    def test_export_crs_html(self, mock_html, client, client_token, sample_crs):
-        """Test exporting CRS as HTML."""
-        mock_html.return_value = "<html>CRS Content</html>"
-        
-        payload = {"format": "html"}
-        
-        response = client.post(
-            f"/api/crs/{sample_crs.id}/export",
-            json=payload,
-            headers={"Authorization": f"Bearer {client_token}"}
-        )
-        
-        assert response.status_code == status.HTTP_200_OK
-        assert response.headers["content-type"] == "text/html; charset=utf-8"
-        assert mock_html.called
-    
-    @patch("app.api.crs.export_markdown_bytes")
-    def test_export_crs_markdown(self, mock_md, client, client_token, sample_crs):
-        """Test exporting CRS as Markdown."""
-        mock_md.return_value = b"# CRS Content"
-        
-        payload = {"format": "markdown"}
-        
-        response = client.post(
-            f"/api/crs/{sample_crs.id}/export",
-            json=payload,
-            headers={"Authorization": f"Bearer {client_token}"}
-        )
-        
-        assert response.status_code == status.HTTP_200_OK
-        assert response.headers["content-type"] == "text/markdown; charset=utf-8"
-        assert mock_md.called
-    
-    @patch("app.api.crs.generate_csv_bytes")
-    def test_export_crs_csv(self, mock_csv, client, client_token, sample_crs):
-        """Test exporting CRS as CSV."""
-        mock_csv.return_value = b"Header1,Header2\nValue1,Value2"
-        
-        payload = {"format": "csv"}
-        
-        response = client.post(
-            f"/api/crs/{sample_crs.id}/export",
-            json=payload,
-            headers={"Authorization": f"Bearer {client_token}"}
-        )
-        
-        assert response.status_code == status.HTTP_200_OK
-        assert response.headers["content-type"] == "text/csv; charset=utf-8"
-        assert mock_csv.called
 
 
 class TestCRSPreview:

@@ -298,6 +298,40 @@ def sample_crs(db: Session, sample_project, client_user: User):
     return crs
 
 
+@pytest.fixture
+def setup_team_project(db: Session, client_user: User, ba_user: User):
+    """Create a team and project setup for CRS testing."""
+    from app.models.team import Team, TeamMember
+    from app.models.project import Project, ProjectStatus
+
+    # Create team
+    team = Team(name="Test Team for CRS", created_by=client_user.id)
+    db.add(team)
+    db.commit()
+    db.refresh(team)
+
+    # Add both users as team members
+    client_member = TeamMember(team_id=team.id, user_id=client_user.id, role="member")
+    ba_member = TeamMember(team_id=team.id, user_id=ba_user.id, role="member")
+    db.add(client_member)
+    db.add(ba_member)
+    db.commit()
+
+    # Create project
+    project = Project(
+        name="Test Project for CRS",
+        description="Test project for CRS operations",
+        team_id=team.id,
+        created_by=client_user.id,
+        status=ProjectStatus.active.value,
+    )
+    db.add(project)
+    db.commit()
+    db.refresh(project)
+
+    return {"team": team, "project": project}
+
+
 @pytest.fixture(scope="function")
 def rate_limit_client(db: Session) -> Generator[TestClient, None, None]:
     """
