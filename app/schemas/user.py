@@ -17,6 +17,9 @@ class UserCreate(BaseModel):
     email: EmailStr = Field(..., max_length=254)
     password: str = Field(..., min_length=8, max_length=128)
     role: Optional[UserRole] = UserRole.client
+    
+    
+
 
     @validator("full_name")
     def validate_full_name(cls, v):
@@ -42,10 +45,16 @@ class UserCreate(BaseModel):
         return v
 
 
+class GoogleLoginRequest(BaseModel):
+    token: str
+    role: Optional[UserRole] = UserRole.client
+
+
 class UserOut(BaseModel):
     id: int
     full_name: str
     email: EmailStr
+    avatar_url: Optional[str] = None
     role: Role
 
     class Config:

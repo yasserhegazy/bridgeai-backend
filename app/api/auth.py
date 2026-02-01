@@ -9,8 +9,77 @@ from app.models.user import User, UserRole
 from app.schemas.token import Token
 from app.schemas.user import UserCreate, UserOut
 from app.utils.hash import hash_password, verify_password
+from google.oauth2 import id_token
+from google.auth.transport import requests
+from app.schemas.user import GoogleLoginRequest
 
 router = APIRouter(tags=["Authentication"])
+
+
+@router.post("/google", response_model=Token)
+@limiter.limit("20/minute")
+def google_login(
+    request: Request,
+    login_data: GoogleLoginRequest,
+    db: Session = Depends(get_db),
+):
+    try:
+        from app.core.config import settings
+        CLIENT_ID = settings.GOOGLE_CLIENT_ID
+        
+        # Verify the token
+        # strictly verify the token is intended for our app
+        id_info = id_token.verify_oauth2_token(login_data.token, requests.Request(), CLIENT_ID)
+
+        # Get user info
+        email = id_info.get("email")
+        google_id = id_info.get("sub")
+        name = id_info.get("name")
+        picture = id_info.get("picture")
+
+        if not email:
+            raise HTTPException(status_code=400, detail="Invalid Google token: no email found")
+
+        # Check if user exists
+        user = db.query(User).filter((User.email == email) | (User.google_id == google_id)).first()
+
+        if not user:
+            # Create new user
+            user = User(
+                full_name=name,
+                email=email,
+                google_id=google_id,
+                avatar_url=picture,
+                role=login_data.role,
+                password_hash=None,  # No password for Google users
+            )
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+        else:
+            # Update existing user if needed (e.g. add google_id if missing)
+            if not user.google_id:
+                user.google_id = google_id
+                db.add(user)
+            
+            # Update avatar if changed
+            if picture and user.avatar_url != picture:
+                user.avatar_url = picture
+                db.add(user)
+                
+            db.commit()
+
+        # Create access token
+        # Ensure user has a role, default to client if None
+        user_role = user.role if user.role is not None else UserRole.client
+        token = create_access_token({"sub": str(user.id), "role": user_role})
+        
+        return {"access_token": token, "token_type": "bearer", "role": user_role.value}
+
+    except ValueError as e:
+        # Invalid token
+        raise HTTPException(status_code=401, detail=f"Invalid Google token: {str(e)}")
+
 
 
 @router.post("/register", response_model=UserOut)
