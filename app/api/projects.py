@@ -356,7 +356,7 @@ def update_project(
     return project
 
 
-@router.put("/{project_id}/approve", response_model=ProjectOut)
+@router.post("/{project_id}/approve", response_model=ProjectOut)
 def approve_project(
     project_id: int,
     db: Session = Depends(get_db),
@@ -402,7 +402,7 @@ def approve_project(
     return project
 
 
-@router.put("/{project_id}/reject", response_model=ProjectOut)
+@router.post("/{project_id}/reject", response_model=ProjectOut)
 def reject_project(
     project_id: int,
     payload: ProjectRejectionRequest,
