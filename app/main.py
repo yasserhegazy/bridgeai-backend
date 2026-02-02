@@ -38,10 +38,24 @@ async def lifespan(app: FastAPI):
         logging.info("ChromaDB successfully initialized in background.")
     except Exception as e:
         logging.error(f"ChromaDB failed: {str(e)}")
+    
+    # Start background CRS generation worker
+    try:
+        from app.services.background_crs_generator import start_crs_worker
+        await start_crs_worker()
+        logging.info("Background CRS generation worker started.")
+    except Exception as e:
+        logging.error(f"Failed to start CRS worker: {str(e)}")
 
     yield  # The app stays running here
 
-    # Optional: Put cleanup code here (e.g., closing DB)
+    # Cleanup: Stop background CRS worker
+    try:
+        from app.services.background_crs_generator import stop_crs_worker
+        await stop_crs_worker()
+        logging.info("Background CRS worker stopped.")
+    except Exception as e:
+        logging.error(f"Failed to stop CRS worker: {str(e)}")
 
 
 app = FastAPI(
