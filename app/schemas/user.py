@@ -74,3 +74,35 @@ class ResetPasswordRequest(BaseModel):
     email: EmailStr
     otp_code: str = Field(..., min_length=6, max_length=6)
     new_password: str = Field(..., min_length=8, max_length=128)
+
+
+class UserProfileUpdate(BaseModel):
+    full_name: str = Field(..., min_length=2, max_length=100)
+
+    @validator("full_name")
+    def validate_full_name(cls, v):
+        v = v.strip()
+        if not v:
+            raise ValueError("Name cannot be empty")
+        if not re.match(r"^[a-zA-Z\s\-\.]+$", v):
+            raise ValueError(
+                "Name can only contain letters, spaces, hyphens, and periods"
+            )
+        return v
+
+
+class PasswordChangeRequest(BaseModel):
+    current_password: str = Field(..., min_length=1)
+    new_password: str = Field(..., min_length=8, max_length=128)
+
+    @validator("new_password")
+    def validate_new_password(cls, v):
+        if len(v) < 8:
+            raise ValueError("Password must be at least 8 characters")
+        if not re.search(r"[A-Z]", v):
+            raise ValueError("Password must contain at least one uppercase letter")
+        if not re.search(r"[a-z]", v):
+            raise ValueError("Password must contain at least one lowercase letter")
+        if not re.search(r"[0-9]", v):
+            raise ValueError("Password must contain at least one digit")
+        return v

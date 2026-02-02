@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status, File, UploadFile
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
@@ -7,7 +7,15 @@ from app.core.security import create_access_token, get_current_user
 from app.db.session import get_db
 from app.models.user import User, UserRole
 from app.schemas.token import Token
-from app.schemas.user import UserCreate, UserOut, ForgotPasswordRequest, VerifyOTPRequest, ResetPasswordRequest
+from app.schemas.user import (
+    UserCreate,
+    UserOut,
+    ForgotPasswordRequest,
+    VerifyOTPRequest,
+    ResetPasswordRequest,
+    UserProfileUpdate,
+    PasswordChangeRequest,
+)
 from app.utils.hash import hash_password, verify_password
 from google.oauth2 import id_token
 from google.auth.transport import requests
@@ -290,3 +298,161 @@ def reset_password(
     db.commit()
 
     return {"message": "Password reset successfully. You can now log in."}
+
+
+@router.put("/me", response_model=UserOut)
+@limiter.limit("10/minute")
+def update_profile(
+    request: Request,
+    data: UserProfileUpdate,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Update current user's profile information."""
+    # Update full name
+    current_user.full_name = data.full_name
+    
+    db.commit()
+    db.refresh(current_user)
+    
+    return current_user
+
+
+@router.post("/change-password")
+@limiter.limit("5/minute")
+def change_password(
+    request: Request,
+    data: PasswordChangeRequest,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Change password for authenticated user."""
+    # Check if user has a password (not a Google OAuth user)
+    if not current_user.password_hash:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot change password for Google OAuth users. Your account uses Google Sign-In."
+        )
+    
+    # Verify current password
+    if not verify_password(data.current_password, current_user.password_hash):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Current password is incorrect"
+        )
+    
+    # Update password
+    current_user.password_hash = hash_password(data.new_password)
+    
+    db.commit()
+    
+    return {"message": "Password changed successfully"}
+
+
+@router.post("/avatar")
+@limiter.limit("10/minute")
+async def upload_avatar(
+    request: Request,
+    file: UploadFile = File(...),
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Upload user avatar image."""
+    import os
+    import uuid
+    from pathlib import Path
+    
+    # Validate file type
+    allowed_types = ["image/jpeg", "image/png", "image/jpg", "image/webp"]
+    if file.content_type not in allowed_types:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid file type. Only JPEG, PNG, and WebP images are allowed."
+        )
+    
+    # Validate file size (max 5MB)
+    max_size = 5 * 1024 * 1024  # 5MB
+    contents = await file.read()
+    if len(contents) > max_size:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="File size too large. Maximum size is 5MB."
+        )
+    
+    # Create avatars directory if it doesn't exist
+    avatars_dir = Path("public/avatars")
+    avatars_dir.mkdir(parents=True, exist_ok=True)
+    
+    # Generate unique filename
+    file_extension = file.filename.split(".")[-1] if "." in file.filename else "jpg"
+    unique_filename = f"{uuid.uuid4()}.{file_extension}"
+    file_path = avatars_dir / unique_filename
+    
+    # Save file
+    with open(file_path, "wb") as f:
+        f.write(contents)
+    
+    # Delete old avatar if it exists and is not a Google avatar
+    if current_user.avatar_url and not current_user.avatar_url.startswith("http"):
+        old_file_path = Path(current_user.avatar_url)
+        if old_file_path.exists():
+            try:
+                os.remove(old_file_path)
+            except Exception:
+                pass  # Ignore errors when deleting old file
+    
+    # Update user's avatar_url in database
+    avatar_url = f"public/avatars/{unique_filename}"
+    current_user.avatar_url = avatar_url
+    
+    db.commit()
+    db.refresh(current_user)
+    
+    return {
+        "message": "Avatar uploaded successfully",
+        "avatar_url": avatar_url
+    }
+
+
+@router.delete("/avatar")
+@limiter.limit("10/minute")
+def delete_avatar(
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Delete user avatar."""
+    import os
+    from pathlib import Path
+    
+    if not current_user.avatar_url:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No avatar to delete"
+        )
+    
+    # Don't delete Google avatars
+    if current_user.avatar_url.startswith("http"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Cannot delete Google avatar"
+        )
+    
+    # Delete file from disk
+    file_path = Path(current_user.avatar_url)
+    if file_path.exists():
+        try:
+            os.remove(file_path)
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Failed to delete avatar file: {str(e)}"
+            )
+    
+    # Clear avatar_url in database
+    current_user.avatar_url = None
+    
+    db.commit()
+    
+    return {"message": "Avatar deleted successfully"}
+
