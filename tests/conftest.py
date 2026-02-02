@@ -299,6 +299,34 @@ def sample_crs(db: Session, sample_project, client_user: User):
 
 
 @pytest.fixture
+def sample_crs_doc(db: Session, sample_project, client_user: User):
+    """Create a sample CRS document for API testing."""
+    import json
+    from app.models.crs import CRSDocument, CRSStatus, CRSPattern
+    
+    crs = CRSDocument(
+        project_id=sample_project.id,
+        created_by=client_user.id,
+        content=json.dumps({
+            "project_title": "Test Project",
+            "project_description": "Test description",
+            "functional_requirements": [
+                {"id": "FR1", "description": "Test requirement"}
+            ]
+        }),
+        summary_points=json.dumps(["Point 1", "Point 2"]),
+        status=CRSStatus.draft,
+        pattern=CRSPattern.ieee_830,
+        version=1,
+        edit_version=1
+    )
+    db.add(crs)
+    db.commit()
+    db.refresh(crs)
+    return crs
+
+
+@pytest.fixture
 def setup_team_project(db: Session, client_user: User, ba_user: User):
     """Create a team and project setup for CRS testing."""
     from app.models.team import Team, TeamMember

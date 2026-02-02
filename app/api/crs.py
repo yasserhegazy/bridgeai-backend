@@ -818,6 +818,25 @@ def update_crs_status_endpoint(
     project = get_project_or_404(db, crs.project_id)
     verify_team_membership(db, project.team_id, current_user.id)
 
+    # Only BAs or team admins can approve or reject CRS
+    if new_status in [CRSStatus.approved, CRSStatus.rejected]:
+        from app.models.team import TeamMember, TeamRole
+        from app.models.user import UserRole
+        
+        # Check if user is BA or team admin
+        is_ba = current_user.role == UserRole.ba
+        team_member = db.query(TeamMember).filter(
+            TeamMember.team_id == project.team_id,
+            TeamMember.user_id == current_user.id
+        ).first()
+        is_admin = team_member and team_member.role == TeamRole.admin
+        
+        if not (is_ba or is_admin):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Only Business Analysts or team admins can approve/reject CRS"
+            )
+
     # Store old status for notification
     old_status = crs.status.value
 

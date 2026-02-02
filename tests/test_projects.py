@@ -417,7 +417,7 @@ class TestProjectApprovalWorkflow:
         project_id = project_response.json()["id"]
 
         # BA approves project
-        response = client.put(
+        response = client.post(
             f"/api/projects/{project_id}/approve", headers=ba_auth_headers
         )
         assert response.status_code == 200
@@ -474,7 +474,7 @@ class TestProjectApprovalWorkflow:
         project_id = project_response.json()["id"]
 
         # BA rejects project
-        response = client.put(
+        response = client.post(
             f"/api/projects/{project_id}/reject",
             json={"rejection_reason": "Does not meet requirements"},
             headers=ba_auth_headers,
@@ -515,7 +515,7 @@ class TestProjectApprovalWorkflow:
         project_id = project_response.json()["id"]
 
         # Try to approve
-        response = client.put(
+        response = client.post(
             f"/api/projects/{project_id}/approve", headers=client_auth_headers
         )
         assert response.status_code == 403
@@ -544,7 +544,7 @@ class TestProjectApprovalWorkflow:
         project_id = project_response.json()["id"]
 
         # Try to approve again
-        response = client.put(
+        response = client.post(
             f"/api/projects/{project_id}/approve", headers=ba_auth_headers
         )
         assert response.status_code == 400

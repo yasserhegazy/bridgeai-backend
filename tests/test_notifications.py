@@ -343,7 +343,7 @@ class TestNotificationMetadata:
         project_id = project_response.json()["id"]
 
         # BA approves project (creates notification)
-        client.put(f"/api/projects/{project_id}/approve", headers=ba_auth_headers)
+        client.post(f"/api/projects/{project_id}/approve", headers=ba_auth_headers)
 
         # Check notification has metadata
         response = client.get("/api/notifications/", headers=client_auth_headers)
