@@ -1,3 +1,4 @@
+import asyncio
 import json
 from typing import Dict, List
 
@@ -399,17 +400,32 @@ async def websocket_endpoint(
                     )
                     continue
 
-                # Save message to database
-                new_message = Message(
-                    session_id=chat_id,
-                    sender_type=sender_type,
-                    sender_id=user.id,
-                    content=content,
-                )
+                # Save message to database with retry on lock errors
+                max_retries = 3
+                for attempt in range(max_retries):
+                    try:
+                        new_message = Message(
+                            session_id=chat_id,
+                            sender_type=sender_type,
+                            sender_id=user.id,
+                            content=content,
+                        )
 
-                db.add(new_message)
-                db.commit()
-                db.refresh(new_message)
+                        db.add(new_message)
+                        db.commit()
+                        db.refresh(new_message)
+                        break  # Success
+                    except Exception as e:
+                        db.rollback()
+                        if attempt < max_retries - 1:
+                            print(f"[WebSocket] Database error (attempt {attempt + 1}/{max_retries}): {e}")
+                            await asyncio.sleep(0.1 * (attempt + 1))  # Exponential backoff
+                        else:
+                            print(f"[WebSocket] Failed to save message after {max_retries} attempts: {e}")
+                            await websocket.send_text(
+                                json.dumps({"error": "Failed to save message. Please try again."})
+                            )
+                            continue
 
                 # Broadcast message to all connected clients in this session
                 message_response = {
