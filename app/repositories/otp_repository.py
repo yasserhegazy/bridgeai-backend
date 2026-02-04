@@ -45,7 +45,7 @@ class OTPRepository(BaseRepository[UserOTP]):
         """
         return (
             self.db.query(UserOTP)
-            .filter(UserOTP.email == email, UserOTP.otp == otp)
+            .filter(UserOTP.email == email, UserOTP.otp_code == otp)
             .first()
         )
 
