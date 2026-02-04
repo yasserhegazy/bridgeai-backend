@@ -28,27 +28,26 @@ class InvitationRepository(BaseRepository[Invitation]):
         """
         return self.db.query(Invitation).filter(Invitation.token == token).first()
 
-    def get_by_team_and_email(self, team_id: int, email: str) -> Optional[Invitation]:
+    def get_by_team_and_email(
+        self, team_id: int, email: str, status: Optional[str] = None
+    ) -> Optional[Invitation]:
         """
-        Get invitation by team and email.
+        Get invitation by team and email, optionally filtered by status.
 
         Args:
             team_id: Team ID
             email: Invitee email
+            status: Optional invitation status to filter
 
         Returns:
             Invitation or None
         """
-        return (
-            self.db.query(Invitation)
-            .filter(
-                and_(
-                    Invitation.team_id == team_id,
-                    Invitation.email == email
-                )
-            )
-            .first()
+        query = self.db.query(Invitation).filter(
+            and_(Invitation.team_id == team_id, Invitation.email == email)
         )
+        if status:
+            query = query.filter(Invitation.status == status)
+        return query.first()
 
     def get_team_invitations(
         self,
