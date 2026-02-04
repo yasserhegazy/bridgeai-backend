@@ -16,6 +16,7 @@ from app.repositories.crs_repository import (
 )
 from app.repositories.notification_repository import NotificationRepository
 from app.repositories.otp_repository import OTPRepository
+from app.repositories.ai_memory_repository import AIMemoryIndexRepository
 
 __all__ = [
     "UserRepository",
@@ -30,4 +31,5 @@ __all__ = [
     "CommentRepository",
     "NotificationRepository",
     "OTPRepository",
+    "AIMemoryIndexRepository",
 ]

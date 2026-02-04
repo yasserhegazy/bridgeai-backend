@@ -339,19 +339,37 @@ class CommentRepository(BaseRepository[Comment]):
         """
         super().__init__(Comment, db)
 
-    def get_crs_comments(self, crs_id: int) -> List[Comment]:
+    def get_crs_comments(
+        self, crs_id: int, skip: int = 0, limit: int = 100
+    ) -> List[Comment]:
         """
         Get all comments for a CRS document.
 
         Args:
             crs_id: CRS document ID
+            skip: Number of records to skip
+            limit: Maximum number of records to return
 
         Returns:
-            List of comments
+            List of comments ordered by creation time (newest first)
         """
         return (
             self.db.query(Comment)
             .filter(Comment.crs_id == crs_id)
-            .order_by(Comment.created_at)
+            .order_by(desc(Comment.created_at))
+            .offset(skip)
+            .limit(limit)
             .all()
         )
+
+    def count_by_crs_id(self, crs_id: int) -> int:
+        """
+        Count comments for a specific CRS document.
+
+        Args:
+            crs_id: CRS document ID
+
+        Returns:
+            Number of comments
+        """
+        return self.db.query(Comment).filter(Comment.crs_id == crs_id).count()
