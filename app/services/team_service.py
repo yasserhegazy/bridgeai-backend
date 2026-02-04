@@ -157,6 +157,33 @@ class TeamService:
         return team_repo.get_with_members(updated_team.id)
 
     @staticmethod
+    def delete_team(db: Session, team_id: int, current_user: User) -> None:
+        """Delete a team. Only owners can delete teams."""
+        # Ensure current user is the owner
+        PermissionService.verify_team_owner(db, team_id, current_user.id)
+
+        team_repo = TeamRepository(db)
+        team = team_repo.get_by_id(team_id)
+        if not team:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Team not found"
+            )
+
+        # Prevent deletion when projects exist
+        project_count = team_repo.count_projects(team_id)
+        if project_count > 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    f"Cannot delete team with {project_count} project(s). "
+                    "Please delete or move all projects first, or archive the team instead."
+                ),
+            )
+
+        team_repo.delete(team)
+        db.commit()
+
+    @staticmethod
     def add_member(
         db: Session, team_id: int, user_id: int, role: TeamRole, current_user: User
     ) -> TeamMember:

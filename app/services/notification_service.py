@@ -160,19 +160,44 @@ def notify_invitation_accepted(
     acceptor_name: str,
     acceptor_email: str,
     role: str,
-    owner_user_id: int,
     commit: bool = True,
 ) -> Notification:
     """Notify team owner when someone accepts invitation."""
+    from app.repositories.team_repository import TeamMemberRepository
+    from app.models.team import TeamRole
+    
+    # Get team owner
+    team_member_repo = TeamMemberRepository(db)
+    owner_members = team_member_repo.get_team_members(team_id, role=TeamRole.owner)
+    if not owner_members:
+        return None
+    
+    owner = owner_members[0]  # Get first owner
+    
     return create_notification(
         db=db,
-        user_id=owner_user_id,
+        user_id=owner.user_id,
         notification_type=NotificationType.TEAM_INVITATION,
         reference_id=team_id,
         title="New Team Member",
         message=f"{acceptor_name} ({acceptor_email}) has joined the team as {role}.",
         commit=commit,
     )
+
+
+def mark_team_invitation_as_read(
+    db: Session,
+    user_id: int,
+    team_id: int
+) -> None:
+    """Mark team invitation notifications as read."""
+    db.query(Notification).filter(
+        Notification.user_id == user_id,
+        Notification.type == NotificationType.TEAM_INVITATION,
+        Notification.reference_id == team_id,
+        Notification.is_read == False,
+    ).update({"is_read": True})
+    db.commit()
 
 
 def send_crs_notification_email(

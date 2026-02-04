@@ -293,27 +293,15 @@ def accept_invitation_from_notification(
     # Mark notification as read
     notification.is_read = True
 
-    # Notify team owner
-    team_owner = (
-        db.query(TeamMember)
-        .filter(
-            TeamMember.team_id == invitation.team_id,
-            TeamMember.role == TeamRole.owner,
-            TeamMember.is_active == True,
-        )
-        .first()
+    # Notify team owner (service will handle finding the owner)
+    notification_service.notify_invitation_accepted(
+        db=db,
+        team_id=invitation.team_id,
+        acceptor_name=current_user.full_name,
+        acceptor_email=current_user.email,
+        role=invitation.role,
+        commit=False,
     )
-
-    if team_owner and team_owner.user_id != current_user.id:
-        notification_service.notify_invitation_accepted(
-            db=db,
-            team_id=invitation.team_id,
-            acceptor_name=current_user.full_name,
-            acceptor_email=current_user.email,
-            role=invitation.role,
-            owner_user_id=team_owner.user_id,
-            commit=False,
-        )
 
     db.commit()
 

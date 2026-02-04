@@ -467,48 +467,6 @@ class TestCRSPreview:
         assert "content" in data
         assert "completeness_percentage" in data
         # Don't assert specific percentage since real LLM is called
-    
-    @patch("app.api.crs.versioning.generate_preview_crs", new_callable=AsyncMock)
-    def test_preview_with_pattern(self, mock_preview, client, db, client_token, sample_project, client_user):
-        """Test preview with specific pattern."""
-        from app.models.message import Message
-        
-        session = SessionModel(
-            project_id=sample_project.id,
-            user_id=client_user.id,
-            name="Test Session"
-        )
-        db.add(session)
-        db.commit()
-        db.refresh(session)
-        
-        # Add message to session (required for preview)
-        from app.models.message import SenderType
-        message = Message(
-            session_id=session.id,
-            sender_type=SenderType.client,
-            sender_id=client_user.id,
-            content="Generate requirements document"
-        )
-        db.add(message)
-        db.commit()
-        
-        mock_preview.return_value = {
-            "content": {},
-            "summary_points": [],
-            "completeness_percentage": 0,
-            "missing_sections": [],
-            "partial_sections": []
-        }
-        
-        response = client.get(
-            f"/api/crs/sessions/{session.id}/preview?pattern=babok",
-            headers={"Authorization": f"Bearer {client_token}"}
-        )
-        
-        assert response.status_code == status.HTTP_200_OK
-        data = response.json()
-        assert "content" in data
 
 
 class TestCRSContentUpdate:

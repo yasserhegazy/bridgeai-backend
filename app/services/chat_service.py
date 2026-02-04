@@ -89,7 +89,7 @@ class ChatService:
     ) -> SessionModel:
         """
         Get a specific chat session.
-        Only the session owner can access it.
+        Only the session owner can view it.
         """
         session_repo = SessionRepository(db)
         session = session_repo.get_by_user_and_id(current_user.id, session_id)

@@ -47,7 +47,7 @@ class SessionRepository(BaseRepository[SessionModel]):
         if project_id:
             query = query.filter(SessionModel.project_id == project_id)
 
-        query = query.group_by(SessionModel.id).order_by(SessionModel.created_at.desc())
+        query = query.group_by(SessionModel.id).order_by(SessionModel.started_at.desc())
 
         return query.offset(skip).limit(limit).all()
 
