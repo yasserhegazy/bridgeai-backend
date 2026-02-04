@@ -1,5 +1,6 @@
 """
-Notification service for CRS events.
+Notification service for all application events.
+Centralizes notification creation for consistency and maintainability.
 """
 
 from typing import List, Optional
@@ -7,7 +8,7 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 
 from app.models.crs import CRSDocument
-from app.models.notification import Notification
+from app.models.notification import Notification, NotificationType
 from app.models.project import Project
 from app.models.user import User
 from app.utils.email import send_email
@@ -22,8 +23,24 @@ def create_notification(
     title: str,
     message: str,
     meta_data: Optional[dict] = None,
+    commit: bool = True,
 ) -> Notification:
-    """Create an in-app notification."""
+    """
+    Create an in-app notification.
+    
+    Args:
+        db: Database session
+        user_id: ID of user to notify
+        notification_type: Type of notification (string or NotificationType enum)
+        reference_id: ID of the related entity (project, team, etc.)
+        title: Notification title
+        message: Notification message
+        meta_data: Additional metadata
+        commit: Whether to commit immediately (default True)
+        
+    Returns:
+        Created Notification object
+    """
     notification = Notification(
         user_id=user_id,
         type=notification_type,
@@ -33,9 +50,129 @@ def create_notification(
         meta_data=meta_data or {},
     )
     db.add(notification)
-    db.commit()
-    db.refresh(notification)
+    if commit:
+        db.commit()
+        db.refresh(notification)
     return notification
+
+
+# ==================== Project Notifications ====================
+
+
+def notify_project_approval_requested(
+    db: Session,
+    project_id: int,
+    project_name: str,
+    requester_name: str,
+    ba_user_ids: List[int],
+    commit: bool = True,
+) -> List[Notification]:
+    """Notify BAs when a client requests project approval."""
+    notifications = []
+    for ba_user_id in ba_user_ids:
+        notif = create_notification(
+            db=db,
+            user_id=ba_user_id,
+            notification_type=NotificationType.PROJECT_APPROVAL,
+            reference_id=project_id,
+            title="New Project Request",
+            message=f"{requester_name} has requested approval for project '{project_name}'.",
+            commit=False,
+        )
+        notifications.append(notif)
+    
+    if commit:
+        db.commit()
+        for notif in notifications:
+            db.refresh(notif)
+    
+    return notifications
+
+
+def notify_project_approved(
+    db: Session,
+    project_id: int,
+    project_name: str,
+    approver_name: str,
+    creator_user_id: int,
+    commit: bool = True,
+) -> Notification:
+    """Notify project creator when project is approved."""
+    return create_notification(
+        db=db,
+        user_id=creator_user_id,
+        notification_type=NotificationType.PROJECT_APPROVAL,
+        reference_id=project_id,
+        title="Project Approved",
+        message=f"Your project '{project_name}' has been approved by {approver_name}.",
+        commit=commit,
+    )
+
+
+def notify_project_rejected(
+    db: Session,
+    project_id: int,
+    project_name: str,
+    rejector_name: str,
+    rejection_reason: str,
+    creator_user_id: int,
+    commit: bool = True,
+) -> Notification:
+    """Notify project creator when project is rejected."""
+    return create_notification(
+        db=db,
+        user_id=creator_user_id,
+        notification_type=NotificationType.PROJECT_APPROVAL,
+        reference_id=project_id,
+        title="Project Rejected",
+        message=f"Your project '{project_name}' was rejected by {rejector_name}. Reason: {rejection_reason}",
+        commit=commit,
+    )
+
+
+# ==================== Team Notifications ====================
+
+
+def notify_team_invitation(
+    db: Session,
+    team_id: int,
+    team_name: str,
+    inviter_name: str,
+    role: str,
+    invited_user_id: int,
+    commit: bool = True,
+) -> Notification:
+    """Notify user when invited to a team."""
+    return create_notification(
+        db=db,
+        user_id=invited_user_id,
+        notification_type=NotificationType.TEAM_INVITATION,
+        reference_id=team_id,
+        title="Team Invitation",
+        message=f"{inviter_name} has invited you to join the team '{team_name}' as {role}.",
+        commit=commit,
+    )
+
+
+def notify_invitation_accepted(
+    db: Session,
+    team_id: int,
+    acceptor_name: str,
+    acceptor_email: str,
+    role: str,
+    owner_user_id: int,
+    commit: bool = True,
+) -> Notification:
+    """Notify team owner when someone accepts invitation."""
+    return create_notification(
+        db=db,
+        user_id=owner_user_id,
+        notification_type=NotificationType.TEAM_INVITATION,
+        reference_id=team_id,
+        title="New Team Member",
+        message=f"{acceptor_name} ({acceptor_email}) has joined the team as {role}.",
+        commit=commit,
+    )
 
 
 def send_crs_notification_email(
