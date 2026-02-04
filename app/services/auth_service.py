@@ -208,6 +208,9 @@ class AuthService:
 
         db_otp = UserOTP(email=email, otp_code=otp_code, expires_at=expires_at)
         otp_repo.create(db_otp)
+        
+        # Commit to persist OTP to database
+        db.commit()
 
         # Send email
         send_password_reset_email(email, otp_code)
