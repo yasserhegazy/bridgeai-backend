@@ -29,7 +29,10 @@ def add_team_member(
     current_user: User = Depends(get_current_user),
 ):
     """Add a member to the team. Only owners and admins can add members."""
-    return TeamService.add_member(db, team_id, payload.user_id, payload.role, current_user)
+    member = TeamService.add_member(db, team_id, payload.user_id, payload.role, current_user)
+    db.commit()
+    db.refresh(member)
+    return member
 
 
 @router.get("/{team_id}/members", response_model=List[TeamMemberDetailOut])
@@ -53,7 +56,7 @@ def update_team_member(
 ):
     """Update team member role or status. Only owners and admins can update members."""
     update_data = payload.dict(exclude_unset=True)
-    return TeamService.update_member(
+    member = TeamService.update_member(
         db,
         team_id,
         member_id,
@@ -61,6 +64,9 @@ def update_team_member(
         role=update_data.get("role"),
         is_active=update_data.get("is_active"),
     )
+    db.commit()
+    db.refresh(member)
+    return member
 
 
 @router.delete("/{team_id}/members/{member_id}")

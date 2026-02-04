@@ -30,7 +30,10 @@ def create_team(
     current_user: User = Depends(get_current_user),
 ):
     """Create a new team. The creator automatically becomes the owner."""
-    return TeamService.create_team(db, payload.name, payload.description, current_user)
+    team = TeamService.create_team(db, payload.name, payload.description, current_user)
+    db.commit()
+    db.refresh(team)
+    return team
 
 
 @router.get("/", response_model=List[TeamListOut])
@@ -64,7 +67,7 @@ def update_team(
 ):
     """Update team. Only owners and admins can update teams."""
     update_data = payload.dict(exclude_unset=True)
-    return TeamService.update_team(
+    team = TeamService.update_team(
         db,
         team_id,
         current_user,
@@ -72,3 +75,17 @@ def update_team(
         description=update_data.get("description"),
         status_update=update_data.get("status"),
     )
+    db.commit()
+    db.refresh(team)
+    return team
+
+
+@router.delete("/{team_id}")
+def delete_team(
+    team_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Delete team. Only owners can delete teams."""
+    TeamService.delete_team(db=db, team_id=team_id, current_user=current_user)
+    return {"message": "Team deleted successfully"}
