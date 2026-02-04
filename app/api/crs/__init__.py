@@ -21,7 +21,7 @@ router.include_router(export_router, tags=["CRS Export"])
 router.include_router(crud_router, tags=["CRS"])
 
 # Re-export schemas for backward compatibility
-from .schemas import (
+from app.schemas.crs import (
     CRSPatternEnum,
     CRSCreate,
     CRSStatusUpdate,

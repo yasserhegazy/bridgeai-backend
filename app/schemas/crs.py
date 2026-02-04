@@ -1,4 +1,4 @@
-"""Shared schemas for CRS API endpoints."""
+"""CRS schemas for request/response validation."""
 
 from datetime import datetime
 from enum import Enum
@@ -17,6 +17,8 @@ class CRSPatternEnum(str, Enum):
 
 
 class CRSCreate(BaseModel):
+    """Schema for creating a new CRS document."""
+
     project_id: int
     content: str
     summary_points: List[str] = Field(default_factory=list)
@@ -47,9 +49,9 @@ class CRSStatusUpdate(BaseModel):
 class CRSContentUpdate(BaseModel):
     """Schema for updating CRS content."""
 
-    content: str = Field(..., description="Updated CRS content in JSON format")
+    content: str = Field(..., description="Full JSON content of the CRS")
     field_sources: Optional[dict] = Field(
-        None, description="Mapping of fields to their source information"
+        None, description="Updated field sources if any"
     )
     edit_version: Optional[int] = Field(
         None, description="Expected version for optimistic locking"
@@ -57,6 +59,8 @@ class CRSContentUpdate(BaseModel):
 
 
 class CRSOut(BaseModel):
+    """Schema for CRS document response."""
+
     id: int
     project_id: int
     status: str
@@ -77,6 +81,8 @@ class CRSOut(BaseModel):
 
 
 class AuditLogOut(BaseModel):
+    """Schema for CRS audit log response."""
+
     id: int
     crs_id: int
     changed_by: int
@@ -90,17 +96,6 @@ class AuditLogOut(BaseModel):
 
     class Config:
         from_attributes = True
-
-
-class CRSContentUpdate(BaseModel):
-    """Schema for updating CRS content directly."""
-    content: str = Field(..., description="Full JSON content of the CRS")
-    expected_version: Optional[int] = Field(
-        None, description="Expected edit_version for optimistic locking"
-    )
-    field_sources: Optional[dict] = Field(
-        None, description="Updated field sources if any"
-    )
 
 
 class CRSPreviewOut(BaseModel):

@@ -4,7 +4,7 @@ import pytest
 from fastapi import status
 
 from app.models.crs import CRSDocument, CRSStatus
-from app.api.crs import CRSContentUpdate
+from app.schemas.crs import CRSContentUpdate
 
 def test_update_crs_content(client, db, client_token, client_user):
     # 1. Setup: Create team, project, and CRS
@@ -110,7 +110,7 @@ def test_update_crs_content_conflict(client, db, client_token, client_user):
         f"/api/crs/{crs.id}/content",
         json={
             "content": '{}',
-            "expected_version": 1 # Expecting 1, actual is 5
+            "edit_version": 1 # Expecting 1, actual is 5
         },
         headers=headers
     )

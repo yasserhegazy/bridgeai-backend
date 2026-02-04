@@ -9,7 +9,7 @@ sys.path.append(os.getcwd())
 def test_crs_create_schema():
     print("Testing CRSCreate schema...")
     try:
-        from app.api.crs import CRSCreate
+        from app.schemas.crs import CRSCreate
         # Try creating an instance with pattern
         obj = CRSCreate(
             project_id=1, 

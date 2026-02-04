@@ -19,7 +19,7 @@ from app.services.crs_service import (
     persist_crs_document,
 )
 from app.services.notification_service import notify_crs_created
-from ..crs.schemas import CRSCreate, CRSOut
+from app.schemas.crs import CRSCreate, CRSOut
 
 
 router = APIRouter()

@@ -22,7 +22,7 @@ from app.services.notification_service import (
     notify_crs_rejected,
     notify_crs_status_changed,
 )
-from ..crs.schemas import CRSOut, CRSStatusUpdate
+from app.schemas.crs import CRSOut, CRSStatusUpdate
 
 
 router = APIRouter()

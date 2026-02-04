@@ -24,7 +24,7 @@ from app.services.crs_service import (
     update_crs_content,
 )
 from app.services.notification_service import notify_crs_created
-from ..crs.schemas import CRSOut, CRSPreviewOut, CRSContentUpdate
+from app.schemas.crs import CRSOut, CRSPreviewOut, CRSContentUpdate
 
 
 router = APIRouter()
@@ -247,7 +247,7 @@ def update_crs_content_endpoint(
             crs_id=crs_id,
             content=payload.content,
             field_sources=payload.field_sources,
-            expected_version=payload.expected_version,
+            expected_version=payload.edit_version,
         )
         
         # Create audit log for content update

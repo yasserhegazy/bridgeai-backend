@@ -27,7 +27,7 @@ from app.services.export_service import (
     generate_csv_bytes,
     html_to_pdf_bytes,
 )
-from ..crs.schemas import AuditLogOut
+from app.schemas.crs import AuditLogOut
 
 
 router = APIRouter()
