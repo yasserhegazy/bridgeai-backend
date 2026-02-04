@@ -1,6 +1,7 @@
 """
 Team Dashboard Module.
 Handles team projects, invitations, and statistics.
+Refactored to use TeamService following service layer architecture.
 """
 from typing import List
 
@@ -12,10 +13,8 @@ from app.core.rate_limit import limiter
 from app.core.security import get_current_user
 from app.db.session import get_db
 from app.models.crs import CRSDocument
-from app.models.invitation import Invitation
 from app.models.project import Project
 from app.models.session_model import SessionModel
-from app.models.team import Team, TeamMember
 from app.models.user import User
 from app.schemas.invitation import InvitationCreate, InvitationOut, InvitationResponse
 from app.schemas.team import (
@@ -25,12 +24,8 @@ from app.schemas.team import (
     CRSStats,
     ProjectSimpleOut,
 )
-from app.utils.invitation import (
-    build_invitation_link,
-    create_invitation,
-    send_invitation_email_to_console,
-)
 from app.services.permission_service import PermissionService
+from app.services.team_service import TeamService
 
 router = APIRouter()
 
@@ -42,38 +37,7 @@ def list_team_projects(
     current_user: User = Depends(get_current_user),
 ):
     """List projects belonging to a team. Only team members can view projects."""
-    # Check if user is a member of the team
-    team_member = (
-        db.query(TeamMember)
-        .filter(
-            TeamMember.team_id == team_id,
-            TeamMember.user_id == current_user.id,
-            TeamMember.is_active == True,
-        )
-        .first()
-    )
-
-    if not team_member:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Access denied. You are not a member of this team.",
-        )
-
-    # Get all projects for this team
-    projects = db.query(Project).filter(Project.team_id == team_id).all()
-
-    return [
-        {
-            "id": project.id,
-            "name": project.name,
-            "description": project.description,
-            "status": project.status,  # Already a string, no need for .value
-            "created_by": project.created_by,
-            "created_at": project.created_at,
-            "updated_at": project.updated_at,
-        }
-        for project in projects
-    ]
+    return TeamService.list_team_projects(db, team_id, current_user)
 
 
 @router.post("/{team_id}/invite", response_model=InvitationResponse)
@@ -86,91 +50,7 @@ def invite_team_member(
     current_user: User = Depends(get_current_user),
 ):
     """Invite a user to join the team by email. Only owners and admins can invite."""
-    # Check if current user has permission to invite
-    PermissionService.verify_team_admin(db, team_id, current_user.id)
-
-    # Check if team exists
-    team = PermissionService.get_team_or_404(db, team_id)
-
-    # Check if user is already a member
-    existing_user = db.query(User).filter(User.email == payload.email).first()
-    if existing_user:
-        existing_member = (
-            db.query(TeamMember)
-            .filter(
-                TeamMember.team_id == team_id,
-                TeamMember.user_id == existing_user.id,
-                TeamMember.is_active == True,
-            )
-            .first()
-        )
-        if existing_member:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="User is already a member of this team",
-            )
-
-    # Check if there's already a pending invitation for this email
-    existing_invitation = (
-        db.query(Invitation)
-        .filter(
-            Invitation.team_id == team_id,
-            Invitation.email == payload.email,
-            Invitation.status == "pending",
-        )
-        .first()
-    )
-    if existing_invitation:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="An invitation has already been sent to this email",
-        )
-
-    # Create invitation
-    invitation = create_invitation(
-        db=db,
-        team_id=team_id,
-        email=payload.email,
-        role=payload.role,
-        invited_by_user_id=current_user.id,
-    )
-
-    # Build invitation link
-    invite_link = build_invitation_link(invitation.token)
-
-    # Send invitation email via SMTP
-    send_invitation_email_to_console(
-        email=payload.email,
-        invite_link=invite_link,
-        team_name=team.name,
-        inviter_name=(
-            current_user.full_name
-            if hasattr(current_user, "full_name")
-            else current_user.username
-        ),
-    )
-
-    # If the invited email belongs to an existing user, create an in-app notification
-    invited_user = db.query(User).filter(User.email == payload.email).first()
-    if invited_user:
-        from app.models.notification import Notification, NotificationType
-
-        notification = Notification(
-            user_id=invited_user.id,
-            type=NotificationType.TEAM_INVITATION,
-            reference_id=team_id,
-            title="Team Invitation",
-            message=f"{current_user.full_name} has invited you to join the team '{team.name}' as {payload.role}.",
-            is_read=False,
-        )
-        db.add(notification)
-        db.commit()
-
-    return {
-        "invite_link": invite_link,
-        "status": invitation.status,
-        "invitation": invitation,
-    }
+    return TeamService.invite_member(db, team_id, payload.email, payload.role, current_user)
 
 
 @router.get("/{team_id}/invitations", response_model=List[InvitationOut])
@@ -184,33 +64,7 @@ def list_team_invitations(
     List all invitations for a team.
     Only team owners and admins can view invitations.
     """
-    # Check if current user has permission (owner or admin)
-    PermissionService.verify_team_admin(db, team_id, current_user.id)
-
-    # Check if team exists
-    team = db.query(Team).filter(Team.id == team_id).first()
-    if not team:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Team not found"
-        )
-
-    # Query invitations
-    query = db.query(Invitation).filter(Invitation.team_id == team_id)
-
-    if not include_expired:
-        # Only show pending invitations by default
-        query = query.filter(Invitation.status == "pending")
-
-    invitations = query.order_by(Invitation.created_at.desc()).all()
-
-    # Update expired invitations
-    for invitation in invitations:
-        if invitation.status == "pending" and invitation.is_expired():
-            invitation.status = "expired"
-
-    db.commit()
-
-    return invitations
+    return TeamService.list_invitations(db, team_id, current_user, include_expired)
 
 
 @router.delete("/{team_id}/invitations/{invitation_id}")
@@ -226,33 +80,7 @@ def cancel_invitation(
     Cancel a pending invitation.
     Only team owners and admins can cancel invitations.
     """
-    # Check if current user has permission (owner or admin)
-    PermissionService.verify_team_admin(db, team_id, current_user.id)
-
-    # Get the invitation
-    invitation = (
-        db.query(Invitation)
-        .filter(Invitation.id == invitation_id, Invitation.team_id == team_id)
-        .first()
-    )
-
-    if not invitation:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="Invitation not found"
-        )
-
-    # Check if invitation can be canceled
-    if invitation.status != "pending":
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Cannot cancel invitation with status: {invitation.status}",
-        )
-
-    # Update invitation status to canceled
-    invitation.status = "canceled"
-    db.commit()
-
-    return {"message": "Invitation canceled successfully"}
+    return TeamService.cancel_invitation(db, team_id, invitation_id, current_user)
 
 
 @router.get("/{team_id}/dashboard/stats", response_model=TeamDashboardStatsOut)
