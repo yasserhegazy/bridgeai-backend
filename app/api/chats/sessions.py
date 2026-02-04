@@ -52,6 +52,9 @@ def create_project_chat(
         crs_document_id=session_data.crs_document_id,
         current_user=current_user,
     )
+    
+    db.commit()
+    db.refresh(new_session)
 
     return SessionOut(
         id=new_session.id,
@@ -106,6 +109,9 @@ def update_project_chat(
         name=session_update.name,
         status_update=session_update.status,
     )
+    
+    db.commit()
+    db.refresh(session)
 
     if session.project_id != project_id:
         raise HTTPException(
