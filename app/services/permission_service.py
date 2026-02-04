@@ -20,6 +20,7 @@ from app.models.team import Team, TeamMember, TeamRole
 from app.models.project import Project
 from app.models.crs import CRSDocument, CRSStatus
 from app.models.notification import Notification
+from app.repositories.user_repository import UserRepository
 from app.repositories.team_repository import TeamRepository, TeamMemberRepository
 from app.repositories.project_repository import ProjectRepository
 from app.repositories.crs_repository import CRSRepository
@@ -168,6 +169,37 @@ class PermissionService:
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only Business Analysts can perform this action",
             )
+
+    @staticmethod
+    def verify_ba_access(db: Session, team_id: int, user_id: int) -> TeamMember:
+        """
+        Verify user is a Business Analyst with access to a team.
+
+        Args:
+            db: Database session
+            team_id: Team ID to check access for
+            user_id: User ID to verify
+
+        Returns:
+            TeamMember object if authorized
+
+        Raises:
+            HTTPException 403: If user is not a BA or not a member of the team
+        """
+        # Get user to verify BA role
+        user_repo = UserRepository(db)
+        user = user_repo.get_by_id(user_id)
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User not found",
+            )
+
+        # Verify BA role
+        PermissionService.verify_ba_role(user)
+
+        # Verify team membership
+        return PermissionService.verify_team_membership(db, team_id, user_id)
 
     # ========================================
     # PROJECT PERMISSION METHODS
