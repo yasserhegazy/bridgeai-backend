@@ -15,12 +15,12 @@ from google.auth.transport import requests
 
 from app.models.user import User, UserRole
 from app.models.invitation import Invitation
-from app.models.notification import Notification, NotificationType
 from app.models.team import Team
 from app.models.user_otp import UserOTP
 from app.core.security import create_access_token
 from app.utils.hash import hash_password, verify_password
 from app.utils.email import send_password_reset_email
+from app.services import notification_service
 
 
 class AuthService:
@@ -139,15 +139,15 @@ class AuthService:
             # Get team details for the notification message
             team = db.query(Team).filter(Team.id == invitation.team_id).first()
             if team and invitation.inviter:
-                notification = Notification(
-                    user_id=user.id,
-                    type=NotificationType.TEAM_INVITATION,
-                    reference_id=invitation.team_id,
-                    title="Team Invitation",
-                    message=f"{invitation.inviter.full_name} has invited you to join the team '{team.name}' as {invitation.role}.",
-                    is_read=False,
+                notification_service.notify_team_invitation(
+                    db=db,
+                    team_id=invitation.team_id,
+                    team_name=team.name,
+                    inviter_name=invitation.inviter.full_name,
+                    role=invitation.role,
+                    invited_user_id=user.id,
+                    commit=False,
                 )
-                db.add(notification)
 
         db.commit()
 

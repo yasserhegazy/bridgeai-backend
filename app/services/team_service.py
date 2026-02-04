@@ -13,8 +13,8 @@ from app.models.team import Team, TeamMember, TeamRole, TeamStatus
 from app.models.user import User
 from app.models.project import Project
 from app.models.invitation import Invitation
-from app.models.notification import Notification, NotificationType
 from app.services.permission_service import PermissionService
+from app.services import notification_service
 from app.utils.invitation import (
     build_invitation_link,
     create_invitation,
@@ -475,16 +475,15 @@ class TeamService:
         # If the invited email belongs to an existing user, create an in-app notification
         invited_user = db.query(User).filter(User.email == email).first()
         if invited_user:
-            notification = Notification(
-                user_id=invited_user.id,
-                type=NotificationType.TEAM_INVITATION,
-                reference_id=team_id,
-                title="Team Invitation",
-                message=f"{current_user.full_name} has invited you to join the team '{team.name}' as {role}.",
-                is_read=False,
+            notification_service.notify_team_invitation(
+                db=db,
+                team_id=team_id,
+                team_name=team.name,
+                inviter_name=current_user.full_name,
+                role=role,
+                invited_user_id=invited_user.id,
+                commit=True,
             )
-            db.add(notification)
-            db.commit()
 
         return {
             "invite_link": invite_link,

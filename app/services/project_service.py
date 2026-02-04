@@ -13,11 +13,11 @@ from fastapi import HTTPException, status
 from app.models.project import Project, ProjectStatus
 from app.models.user import User, UserRole
 from app.models.team import TeamMember
-from app.models.notification import Notification, NotificationType
 from app.models.session_model import SessionModel
 from app.models.crs import CRSDocument
 from app.models.ai_memory_index import AIMemoryIndex
 from app.services.permission_service import PermissionService
+from app.services import notification_service
 
 
 class ProjectService:
@@ -136,19 +136,16 @@ class ProjectService:
             .all()
         )
 
-        # Create notification for each BA
-        for ba_member in ba_members:
-            notification = Notification(
-                user_id=ba_member.user_id,
-                type=NotificationType.PROJECT_APPROVAL,
-                reference_id=project.id,
-                title="New Project Request",
-                message=f"{creator.full_name} has requested approval for project '{project.name}'.",
-                is_read=False,
-            )
-            db.add(notification)
-
-        db.commit()
+        # Create notifications for all BAs
+        ba_user_ids = [ba_member.user_id for ba_member in ba_members]
+        notification_service.notify_project_approval_requested(
+            db=db,
+            project_id=project.id,
+            project_name=project.name,
+            requester_name=creator.full_name,
+            ba_user_ids=ba_user_ids,
+            commit=True,
+        )
 
     @staticmethod
     def get_project(db: Session, project_id: int, current_user: User) -> Project:
@@ -260,15 +257,14 @@ class ProjectService:
         project.rejection_reason = None
 
         # Create notification for project creator
-        notification = Notification(
-            user_id=project.created_by,
-            type=NotificationType.PROJECT_APPROVAL,
-            reference_id=project.id,
-            title="Project Approved",
-            message=f"Your project '{project.name}' has been approved by {current_user.full_name}.",
-            is_read=False,
+        notification_service.notify_project_approved(
+            db=db,
+            project_id=project.id,
+            project_name=project.name,
+            approver_name=current_user.full_name,
+            creator_user_id=project.created_by,
+            commit=False,
         )
-        db.add(notification)
 
         db.commit()
         db.refresh(project)
@@ -303,15 +299,15 @@ class ProjectService:
         project.approved_at = None
 
         # Create notification for project creator
-        notification = Notification(
-            user_id=project.created_by,
-            type=NotificationType.PROJECT_APPROVAL,
-            reference_id=project.id,
-            title="Project Rejected",
-            message=f"Your project '{project.name}' was rejected by {current_user.full_name}. Reason: {rejection_reason}",
-            is_read=False,
+        notification_service.notify_project_rejected(
+            db=db,
+            project_id=project.id,
+            project_name=project.name,
+            rejector_name=current_user.full_name,
+            rejection_reason=rejection_reason,
+            creator_user_id=project.created_by,
+            commit=False,
         )
-        db.add(notification)
 
         db.commit()
         db.refresh(project)
