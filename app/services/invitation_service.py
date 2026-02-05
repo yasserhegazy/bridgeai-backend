@@ -41,6 +41,56 @@ class InvitationService:
         return repo.get_by_token(token)
 
     @staticmethod
+    def check_invitation(db: Session, token: str):
+        """
+        Check invitation validity and user registration status.
+        Used by frontend to determine if redirect to registration is needed.
+        
+        Args:
+            db: Database session
+            token: Invitation token
+            
+        Returns:
+            Dictionary with invitation details and registration status
+        """
+        from app.repositories import UserRepository
+        
+        repo = InvitationRepository(db)
+        invitation = repo.get_by_token(token)
+        
+        if not invitation:
+            return {
+                "valid": False,
+                "error": "Invitation not found"
+            }
+        
+        # Check if invitation is valid (not expired, status is pending)
+        if not invitation.is_valid():
+            return {
+                "valid": False,
+                "error": "Invitation has expired or is no longer valid"
+            }
+        
+        # Check if user is registered
+        user_repo = UserRepository(db)
+        user = user_repo.get_by_email(invitation.email)
+        
+        # Get team details
+        team_repo = TeamRepository(db)
+        team = team_repo.get_by_id(invitation.team_id)
+        
+        return {
+            "valid": True,
+            "email": invitation.email,
+            "team_name": team.name if team else "Unknown",
+            "inviter_name": invitation.inviter.full_name if invitation.inviter else "Unknown",
+            "role": invitation.role,
+            "user_registered": user is not None,
+            "requires_registration": user is None,
+        }
+
+
+    @staticmethod
     def get_invitation_details(
         db: Session, token: str
     ) -> InvitationPublicOut:
