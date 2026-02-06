@@ -73,6 +73,7 @@ class AuthService:
                         password_hash=None,  # Google users don't have a password
                     )
                 )
+                db.commit()
             else:
                 # Update existing user's Google ID and avatar if needed
                 if not user.google_id:
@@ -82,6 +83,7 @@ class AuthService:
                     user.avatar_url = picture
 
                 user_repo.update(user)
+                db.commit()
 
             # Create access token
             user_role = user.role if user.role is not None else UserRole.client
