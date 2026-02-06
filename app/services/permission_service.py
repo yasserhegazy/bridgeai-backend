@@ -338,14 +338,14 @@ class PermissionService:
         if user.role == UserRole.ba:
             return
 
-        # Check if user is team admin
+        # Check if user is team BA (Business Analyst)
         project = PermissionService.get_project_or_404(db, project_id)
         team_member_repo = TeamMemberRepository(db)
         team_member = team_member_repo.get_by_team_and_user(project.team_id, user.id)
 
-        is_admin = team_member and team_member.role == TeamRole.admin
+        is_ba = team_member and team_member.role == TeamRole.ba
 
-        if not is_admin:
+        if not is_ba:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Only Business Analysts or team admins can approve/reject CRS documents",
