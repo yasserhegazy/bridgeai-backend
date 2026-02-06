@@ -1,15 +1,16 @@
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
+import resend
 
 from app.core.config import settings
+
+# Configure Resend with API key
+resend.api_key = settings.RESEND_API_KEY
 
 
 def send_email(
     to_email: str, subject: str, html_content: str, text_content: str = None
 ):
     """
-    Send an email via SMTP.
+    Send an email via Resend API.
 
     Args:
         to_email: Recipient email address
@@ -17,30 +18,23 @@ def send_email(
         html_content: HTML content of the email
         text_content: Plain text content (optional, fallback)
     """
-    # Create message
-    msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject
-    msg["From"] = f"{settings.SMTP_FROM_NAME} <{settings.SMTP_FROM_EMAIL}>"
-    msg["To"] = to_email
-
-    # Attach text content
-    if text_content:
-        part1 = MIMEText(text_content, "plain")
-        msg.attach(part1)
-
-    # Attach HTML content
-    part2 = MIMEText(html_content, "html")
-    msg.attach(part2)
-
-    # Send email
     try:
-        with smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT) as server:
-            server.ehlo()
-            server.starttls()
-            server.ehlo()
-            server.login(settings.SMTP_USER, settings.SMTP_PASSWORD)
-            server.sendmail(settings.SMTP_FROM_EMAIL, to_email, msg.as_string())
-            print(f"✅ Email sent successfully to {to_email}")
+        # Prepare email parameters
+        params = {
+            "from": f"{settings.EMAIL_FROM_NAME} <{settings.EMAIL_FROM_ADDRESS}>",
+            "to": [to_email],
+            "subject": subject,
+            "html": html_content,
+        }
+
+        # Add text content if provided
+        if text_content:
+            params["text"] = text_content
+
+        # Send email using Resend
+        email = resend.Emails.send(params)
+        print(f"✅ Email sent successfully to {to_email} (ID: {email['id']})")
+        return email
     except Exception as e:
         print(f"❌ Failed to send email to {to_email}: {str(e)}")
         raise

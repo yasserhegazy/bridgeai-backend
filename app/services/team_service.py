@@ -53,10 +53,12 @@ class TeamService:
             Team(name=name, description=description, created_by=current_user.id)
         )
 
-        # Add creator as owner
+        # Add creator with role based on their user role (client or ba)
+        # Map user role to team role
+        team_role = TeamRole.client if current_user.role.value == "client" else TeamRole.ba
         team_member_repo.create(
             TeamMember(
-                team_id=team.id, user_id=current_user.id, role=TeamRole.owner
+                team_id=team.id, user_id=current_user.id, role=team_role
             )
         )
 
@@ -187,12 +189,18 @@ class TeamService:
     def add_member(
         db: Session, team_id: int, user_id: int, role: TeamRole, current_user: User
     ) -> TeamMember:
-        """Add a member to the team. Only owners and admins can add members."""
-        # Check if current user has permission
-        PermissionService.verify_team_admin(db, team_id, current_user.id)
-
+        """Add a member to the team."""
         # Check if team exists
         team = PermissionService.get_team_or_404(db, team_id)
+
+        # Check current team size - enforce 2-member limit - REMOVED
+        team_member_repo = TeamMemberRepository(db)
+        # active_member_count = team_member_repo.get_active_member_count(team_id)
+        # if active_member_count >= 2:
+        #     raise HTTPException(
+        #         status_code=status.HTTP_400_BAD_REQUEST,
+        #         detail="Team is at maximum capacity (2 members: Client + BA)",
+        #     )
 
         # Check if user exists
         user_repo = UserRepository(db)
@@ -253,8 +261,8 @@ class TeamService:
         role: Optional[TeamRole] = None,
         is_active: Optional[bool] = None,
     ) -> TeamMember:
-        """Update team member role or status. Only owners and admins can update members."""
-        # Check if current user has permission
+        """Update team member role or status. Only BAs can update members."""
+        # Check if current user has permission (BA only)
         current_member = PermissionService.verify_team_admin(db, team_id, current_user.id)
 
         # Get the member to update
@@ -264,16 +272,6 @@ class TeamService:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND, detail="Team member not found"
             )
-
-        # Prevent demoting the last owner
-        if member.role == TeamRole.owner and role and role != TeamRole.owner:
-            owner_count = team_member_repo.count_active_owners(team_id)
-
-            if owner_count <= 1:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Cannot demote the last owner of the team",
-                )
 
         # Update member
         if role is not None:
@@ -287,8 +285,8 @@ class TeamService:
     def remove_member(
         db: Session, team_id: int, member_id: int, current_user: User
     ) -> Dict[str, str]:
-        """Remove a member from the team. Only owners and admins can remove members."""
-        # Check if current user has permission
+        """Remove a member from the team. Only BAs can remove members."""
+        # Check if current user has permission (BA only)
         current_member = PermissionService.verify_team_admin(db, team_id, current_user.id)
 
         # Get the member to remove
@@ -299,19 +297,9 @@ class TeamService:
                 status_code=status.HTTP_404_NOT_FOUND, detail="Team member not found"
             )
 
-        # Prevent removing the last owner
-        if member.role == TeamRole.owner:
-            owner_count = team_member_repo.count_active_owners(team_id)
-
-            if owner_count <= 1:
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="Cannot remove the last owner of the team",
-                )
-
         # Mark member as inactive instead of deleting
         member.is_active = False
-        team_member_repo.update(member)
+        updated_member = team_member_repo.update(member)
 
         return {"message": "Team member removed successfully"}
 
@@ -350,18 +338,23 @@ class TeamService:
     def invite_member(
         db: Session, team_id: int, email: str, role: str, current_user: User
     ) -> Dict[str, Any]:
-        """Invite a user to join the team by email. Only owners and admins can invite."""
-        # Check if current user has permission to invite
-        PermissionService.verify_team_admin(db, team_id, current_user.id)
-
+        """Invite a user to join the team by email."""
         # Check if team exists
         team = PermissionService.get_team_or_404(db, team_id)
+
+        # Check current team size - enforce 2-member limit - REMOVED
+        team_member_repo = TeamMemberRepository(db)
+        # active_member_count = team_member_repo.get_active_member_count(team_id)
+        # if active_member_count >= 2:
+        #     raise HTTPException(
+        #         status_code=status.HTTP_400_BAD_REQUEST,
+        #         detail="Team is at maximum capacity (2 members: Client + BA)",
+        #     )
 
         # Check if user is already a member
         user_repo = UserRepository(db)
         existing_user = user_repo.get_by_email(email)
         if existing_user:
-            team_member_repo = TeamMemberRepository(db)
             existing_member = team_member_repo.get_by_team_and_user(
                 team_id, existing_user.id
             )
@@ -432,10 +425,10 @@ class TeamService:
     ) -> List[Invitation]:
         """
         List all invitations for a team.
-        Only team owners and admins can view invitations.
+        Both team members (Client and BA) can view invitations.
         """
-        # Check if current user has permission (owner or admin)
-        PermissionService.verify_team_admin(db, team_id, current_user.id)
+        # Check if current user is a team member
+        PermissionService.verify_team_membership(db, team_id, current_user.id)
 
         # Check if team exists
         team_repo = TeamRepository(db)
@@ -489,8 +482,8 @@ class TeamService:
                 detail="Can only cancel pending invitations",
             )
 
-        # Mark as cancelled
-        invitation.status = "cancelled"
+        # Mark as canceled
+        invitation.status = "canceled"
         invitation_repo.update(invitation)
 
-        return {"message": "Invitation cancelled successfully"}
+        return {"message": "Invitation canceled successfully"}

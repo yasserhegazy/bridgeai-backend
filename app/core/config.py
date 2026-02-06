@@ -17,13 +17,10 @@ class Settings(BaseSettings):
     PASSWORD_MIN_LENGTH: int = 8
     MAX_LOGIN_ATTEMPTS: int = 5
 
-    # Email settings
-    SMTP_HOST: str
-    SMTP_PORT: int = 587
-    SMTP_USER: str
-    SMTP_PASSWORD: str
-    SMTP_FROM_EMAIL: str
-    SMTP_FROM_NAME: str = "BridgeAI"
+    # Email settings (Resend API)
+    RESEND_API_KEY: str
+    EMAIL_FROM_ADDRESS: str = "admin@bridge-ai.dev"
+    EMAIL_FROM_NAME: str = "BridgeAI"
     # AI settings
     GROQ_API_KEY: str = ""  # Optional if using Anthropic
     ANTHROPIC_API_KEY: str

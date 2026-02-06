@@ -18,10 +18,8 @@ from app.db.session import Base
 
 
 class TeamRole(enum.Enum):
-    owner = "owner"
-    admin = "admin"
-    member = "member"
-    viewer = "viewer"
+    client = "client"
+    ba = "ba"
 
 
 class TeamStatus(enum.Enum):
@@ -57,7 +55,7 @@ class TeamMember(Base):
     id = Column(Integer, primary_key=True, index=True)
     team_id = Column(Integer, ForeignKey("teams.id"), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    role = Column(Enum(TeamRole), default=TeamRole.member)
+    role = Column(Enum(TeamRole), default=TeamRole.client)
     is_active = Column(Boolean, default=True)
     joined_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(

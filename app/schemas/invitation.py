@@ -8,7 +8,7 @@ class InvitationCreate(BaseModel):
     """Schema for creating a team invitation."""
 
     email: EmailStr = Field(..., max_length=254)
-    role: str = Field(..., pattern="^(owner|admin|member|viewer)$")
+    role: str = Field(..., pattern="^(client|ba)$")
 
     @validator("email")
     def validate_email(cls, v):
