@@ -3,7 +3,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from app.core.rate_limit import limiter
-from app.core.security import get_current_user
+from app.core.security import get_current_user, get_current_user_allow_null_role
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.token import Token
@@ -16,6 +16,7 @@ from app.schemas.user import (
     UserProfileUpdate,
     PasswordChangeRequest,
     GoogleLoginRequest,
+    RoleSelectionRequest,
 )
 from app.services.auth_service import AuthService
 from app.services.file_storage_service import FileStorageService
@@ -33,7 +34,7 @@ def google_login(
     from app.core.config import settings
     
     return AuthService.google_login(
-        db, login_data.token, login_data.role, settings.GOOGLE_CLIENT_ID
+        db, login_data.token, settings.GOOGLE_CLIENT_ID
     )
 
 
@@ -41,7 +42,7 @@ def google_login(
 @limiter.limit("1000/hour")
 def register_user(request: Request, data: UserCreate, db: Session = Depends(get_db)):
     return AuthService.register_user(
-        db, data.full_name, data.email, data.password, data.role
+        db, data.full_name, data.email, data.password
     )
 
 
@@ -53,6 +54,22 @@ def login(
     db: Session = Depends(get_db),
 ):
     return AuthService.authenticate_user(db, form_data.username, form_data.password)
+
+
+@router.patch("/role", response_model=Token)
+@limiter.limit("10/minute")
+def select_role(
+    request: Request,
+    data: RoleSelectionRequest,
+    current_user: User = Depends(get_current_user_allow_null_role),
+    db: Session = Depends(get_db),
+):
+    """
+    Select user role after registration or OAuth login.
+    Can only be called once when role is NULL.
+    Returns new access token with role included.
+    """
+    return AuthService.select_role(db, current_user, data.role)
 
 
 @router.get("/me", response_model=UserOut)
