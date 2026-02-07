@@ -21,7 +21,7 @@ class User(Base):
     password_hash = Column(String(512), nullable=True)
     google_id = Column(String(128), unique=True, index=True, nullable=True)
     avatar_url = Column(String(512), nullable=True)
-    role = Column(Enum(UserRole), default=UserRole.client)
+    role = Column(Enum(UserRole), nullable=True)  # NULL indicates role not yet selected
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 

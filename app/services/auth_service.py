@@ -33,10 +33,11 @@ class AuthService:
     """Service for managing authentication and user operations."""
 
     @staticmethod
-    def google_login(db: Session, token: str, role: UserRole, google_client_id: str) -> Dict[str, Any]:
+    def google_login(db: Session, token: str, google_client_id: str) -> Dict[str, Any]:
         """
         Authenticate user via Google OAuth.
         Only allows @gmail.com email addresses for Google Sign-In.
+        New users created with role=NULL (to be selected via role selection modal).
         """
         try:
             # Verify Google token
@@ -62,14 +63,15 @@ class AuthService:
             user = user_repo.get_by_email(email)
 
             if not user:
-                # Create new user from Google account
+                # Create new user from Google account with NULL role
+                # User will select role via role selection modal after login
                 user = user_repo.create(
                     User(
                         full_name=name,
                         email=email,
                         google_id=google_id,
                         avatar_url=picture,
-                        role=role,
+                        role=None,  # Will be set via role selection
                         password_hash=None,  # Google users don't have a password
                     )
                 )
@@ -89,13 +91,18 @@ class AuthService:
                 db.commit()
 
             # Create access token
-            user_role = user.role if user.role is not None else UserRole.client
-            access_token = create_access_token({"sub": str(user.id), "role": user_role})
+            # Note: User might have NULL role, token will handle it gracefully
+            user_role = user.role  # Can be None for new users
+            token_data = {"sub": str(user.id)}
+            if user_role is not None:
+                token_data["role"] = user_role
+            
+            access_token = create_access_token(token_data)
 
             return {
                 "access_token": access_token,
                 "token_type": "bearer",
-                "role": user_role.value,
+                "role": user_role.value if user_role else None,
             }
 
         except ValueError as e:
@@ -105,10 +112,11 @@ class AuthService:
 
     @staticmethod
     def register_user(
-        db: Session, full_name: str, email: str, password: str, role: UserRole
+        db: Session, full_name: str, email: str, password: str
     ) -> User:
         """
         Register a new user with email and password.
+        User created with role=NULL (to be selected via role selection modal).
         Creates notifications for any pending team invitations.
         """
         # Check if email already registered
@@ -123,7 +131,7 @@ class AuthService:
                 full_name=full_name,
                 email=email,
                 password_hash=hash_password(password),
-                role=role,
+                role=None,  # Will be set via role selection modal
             )
         )
 
@@ -168,14 +176,55 @@ class AuthService:
                 status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials"
             )
 
-        # Ensure user has a role, default to client if None
-        user_role = user.role if user.role is not None else UserRole.client
+        # Allow login even with NULL role (will be prompted to select role)
+        user_role = user.role  # Can be None
+        token_data = {"sub": str(user.id)}
+        if user_role is not None:
+            token_data["role"] = user_role
 
-        access_token = create_access_token({"sub": str(user.id), "role": user_role})
+        access_token = create_access_token(token_data)
         return {
             "access_token": access_token,
             "token_type": "bearer",
-            "role": user_role.value,
+            "role": user_role.value if user_role else None,
+        }
+
+    @staticmethod
+    def select_role(db: Session, user: User, role: UserRole) -> Dict[str, Any]:
+        """
+        Set user role after registration/OAuth.
+        Can only be called once - role must be NULL.
+        Returns new access token with role included.
+        """
+        # Validate that role hasn't been set yet
+        if user.role is not None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Role already selected. Cannot change role once set.",
+            )
+        
+        # Validate role value
+        if role not in [UserRole.client, UserRole.ba]:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid role. Must be 'client' or 'ba'.",
+            )
+        
+        # Update user role
+        user_repo = UserRepository(db)
+        user.role = role
+        user_repo.update(user)
+        db.commit()
+        db.refresh(user)
+        
+        # Generate new token with role
+        access_token = create_access_token({"sub": str(user.id), "role": role})
+        
+        return {
+            "access_token": access_token,
+            "token_type": "bearer",
+            "role": role.value,
+            "user": user,
         }
 
     @staticmethod

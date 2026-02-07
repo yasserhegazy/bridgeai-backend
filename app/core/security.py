@@ -68,6 +68,26 @@ def verify_token(token: str, db: Session):
 def get_current_user(
     token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
 ):
+    """Get current user and ensure role is set (not NULL)."""
+    user = verify_token(token, db)
+    
+    # Check if user has selected a role
+    if user.role is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Please select your role before accessing this feature. Complete your profile setup first.",
+        )
+    
+    return user
+
+
+def get_current_user_allow_null_role(
+    token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)
+):
+    """
+    Get current user but allow NULL role.
+    Used for role selection endpoint only.
+    """
     return verify_token(token, db)
 
 
