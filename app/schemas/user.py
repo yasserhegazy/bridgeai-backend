@@ -16,7 +16,7 @@ class UserCreate(BaseModel):
     full_name: str = Field(..., min_length=2, max_length=100)
     email: EmailStr = Field(..., max_length=254)
     password: str = Field(..., min_length=8, max_length=128)
-    role: Optional[UserRole] = UserRole.client
+    # Role removed - will be selected post-registration via role selection modal
     
     
 
@@ -47,7 +47,12 @@ class UserCreate(BaseModel):
 
 class GoogleLoginRequest(BaseModel):
     token: str
-    role: Optional[UserRole] = UserRole.client
+    # Role removed - will be selected post-OAuth via role selection modal
+
+
+class RoleSelectionRequest(BaseModel):
+    """Request schema for selecting user role after registration/OAuth."""
+    role: UserRole = Field(..., description="User role: 'client' or 'ba'")
 
 
 class UserOut(BaseModel):
@@ -55,10 +60,15 @@ class UserOut(BaseModel):
     full_name: str
     email: EmailStr
     avatar_url: Optional[str] = None
-    role: Role
+    role: Optional[Role] = None  # NULL indicates role not yet selected
 
     class Config:
         from_attributes = True
+    
+    @property
+    def has_selected_role(self) -> bool:
+        """Check if user has selected a role."""
+        return self.role is not None
 
 
 class ForgotPasswordRequest(BaseModel):

@@ -1,7 +1,8 @@
+from typing import Optional
 from pydantic import BaseModel
 
 
 class Token(BaseModel):
     access_token: str
     token_type: str
-    role: str  # Add role to response
+    role: Optional[str] = None  # Role can be None for users who haven't selected yet
